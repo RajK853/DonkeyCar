@@ -1,0 +1,16 @@
+-e git+https://github.com/autorope/donkeycar@3051e648bea08cefb2c0c1af20b94272734cdbee#egg=donkeycar
+-e git+https://github.com/tawnkramer/gym-donkeycar@3c33a9ed850b059a6c6ca93959df8fe809d06306#egg=gym_donkeycar
+jaraco.itertools==5.0.0
+jupyter==1.0.0
+matplotlib==3.1.3
+mkl-fft==1.0.15
+mkl-random==1.1.0
+mkl-service==2.3.0
+mock==3.0.5
+olefile==0.46
+pipdeptree==0.13.2
+pylint==2.4.4
+pynput==1.6.6
+pytest==5.3.5
+sklearn==0.0
+tensorflow==1.13.1

@@ -1,6 +1,7 @@
 import tensorflow as tf
 import tensorflow.compat.v1 as tf_v1
-from .layers import DonkeyNetV0Layers
+from .layers import get_donkey_net
+from .utils import timer_wrapper
 
 
 class Model:
@@ -19,7 +20,8 @@ class Model:
         with tf_v1.variable_scope(self.scope, reuse=True):
             for layer in layers:
                 output = layer(output)
-            return output
+        print(f"Model {self.scope} with {len(layers)} built!\n")
+        return output
 
     @property
     def input(self):
@@ -45,8 +47,10 @@ class Model:
         loss, *_ = sess.run(sess_runs, feed_dict={self.input_ph: batch_inputs, self.target_ph: batch_targets})
         return loss
 
+    @timer_wrapper
     def run(self, sess, data_gen, training=False):
         losses = [self.run_batch(sess, inputs, targets, training=training) for inputs, targets in data_gen]
+        print()
         return losses
 
     @property
@@ -62,6 +66,7 @@ class Model:
             file_path (str) : Destination model file path to store variables (as checkpoint)
         """
         self.saver.save(sess, file_path)
+        print(f"Model saved as '{file_path}'!")
 
     def restore_model(self, sess, file_path):
         """
@@ -70,13 +75,14 @@ class Model:
             file_path (str) : Source model file path to store variables (as checkpoint)
         """
         self.saver.restore(sess, file_path)
+        print(f"Model restored from '{file_path}'!")
 
 
-class DonkeyNetV0(Model):
-    def __init__(self, scope, *, input_shape, loss_func=None, optimizer=None):
+class DonkeyNet(Model):
+    def __init__(self, version, *, input_shape, loss_func=None, optimizer=None):
         kwargs = {"input_ph": tf_v1.placeholder(tf.float32, shape=[None, *input_shape], name="images_ph"),
-                  "layers": DonkeyNetV0Layers,
+                  "layers": get_donkey_net(version),
                   "target_ph": tf_v1.placeholder(tf.float32, shape=[None, 1], name="target_actions_ph"),
                   "loss_func": loss_func or tf_v1.losses.mean_squared_error,
                   "optimizer": optimizer or tf_v1.train.AdamOptimizer(learning_rate=1e-4)}
-        super(DonkeyNetV0, self).__init__(scope, **kwargs)
+        super(DonkeyNet, self).__init__(f"DonkeyNetV{version}Model", **kwargs)

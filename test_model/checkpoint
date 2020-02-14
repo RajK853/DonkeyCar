@@ -1,0 +1,2 @@
+model_checkpoint_path: "/home/rajk/Machine_Learning/DonkeyCar Project/models/model.chkpt"
+all_model_checkpoint_paths: "/home/rajk/Machine_Learning/DonkeyCar Project/models/model.chkpt"

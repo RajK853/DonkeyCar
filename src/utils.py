@@ -3,6 +3,8 @@ import cv2
 import json
 import argparse
 import numpy as np
+from time import time
+from functools import wraps
 from sklearn.utils import shuffle
 from .progress_bar import ProgressBar
 
@@ -148,6 +150,8 @@ def parse_args():
          argparse.ArgumentParser : Parsed arguments
     """
     arg_parser = argparse.ArgumentParser()
+    arg_parser.add_argument("--version", help="DonkeyNet version", type=int,
+                            choices=(0, 1), default=0)
     arg_parser.add_argument("--data_dir", help="Data directory", type=str)
     arg_parser.add_argument("--epochs", help="Number of epochs", type=int, default=20)
     arg_parser.add_argument("--img_key", help="Key value for image array in JSON data",
@@ -156,11 +160,24 @@ def parse_args():
                             type=str, default="user/angle")
     arg_parser.add_argument("--throttle_key", help="Key value for throttle in JSON data",
                             type=str, default="user/throttle")
-    arg_parser.add_argument("--save_model_path", help="Path to save for trained models",
+    arg_parser.add_argument("--save_model_path", help="Path to save for trained model",
+                            type=str, default=None)
+    arg_parser.add_argument("--retrain_model", help="Path of model to retrain",
                             type=str, default=None)
     arg_parser.add_argument("--verbose", help="Verbosity", dest="verbose", action="store_true")
     arg_parser.set_defaults(verbose=False)
     _args = arg_parser.parse_args()
     if _args.save_model_path is None:
-        _args.save_model_path = os.path.join("models", "model.chkpt")
+        _args.save_model_path = os.path.join("models", f"DonkeyNetV{_args.version}Model")
     return _args
+
+
+def timer_wrapper(func):
+    @wraps(func)
+    def wrapper_func(*args, **kwargs):
+        t0 = time()
+        result = func(*args, **kwargs)
+        dt = time()-t0
+        print(f"Time taken spent in {func.__name__}: {dt:.3f} seconds!")
+        return result
+    return wrapper_func

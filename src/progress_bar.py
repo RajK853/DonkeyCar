@@ -1,10 +1,9 @@
 class ProgressBar:
-    def __init__(self, total_iter, display_text="Progress", max_bar_size=50, auto_reset=True,
+    def __init__(self, total_iter, display_text="Progress", max_bar_size=50,
                  change_line_at_reset=True, done_char="█", undone_char="░"):
         self.total_iter = total_iter
         self.display_text = display_text
         self.max_bar_size = max_bar_size
-        self.auto_reset = auto_reset
         self.change_line = change_line_at_reset
         self.done_char = done_char
         self.undone_char = undone_char
@@ -26,5 +25,5 @@ class ProgressBar:
         current_bar = bar_size*self.done_char
         print(f"\r{self.display_text} : {current_bar:{self.undone_char}<{self.max_bar_size}}"
               f" {100 * progress_ratio:>6.2f}% ({self._current_iter:>3}/{self.total_iter:<3})", end="")
-        if (self._current_iter == self.total_iter) and self.auto_reset:
+        if self._current_iter >= self.total_iter:
             self.reset()

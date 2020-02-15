@@ -20,7 +20,7 @@ class Model:
         with tf_v1.variable_scope(self.scope, reuse=True):
             for layer in layers:
                 output = layer(output)
-        print(f"Model {self.scope} with {len(layers)} built!\n")
+        print(f"Model {self.scope} with {len(layers)} layers built!\n")
         return output
 
     @property
@@ -29,7 +29,7 @@ class Model:
 
     @property
     def output(self):
-        return self.network_output
+        return tf.squeeze(self.network_output)
 
     def predict(self, sess, inputs):
         outputs = sess.run(self.output, feed_dict={self.input_ph: inputs})

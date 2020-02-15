@@ -69,7 +69,7 @@ def load_data(data_dir, img_key, steering_key, throttle_key, extensions=None, ex
     for json_file in json_files:
         json_data = load_json(os.path.join(data_dir, json_file), include_keys=json_keys)
         # Ignore data where the car was in rest
-        if json_data[throttle_key] == 0.0:
+        if json_data[throttle_key] == 0.0 and json_data[steering_key] == 0.0:
             continue
         img_path = os.path.join(data_dir, json_data[img_key])
         # TODO: BGR2RGB conversion only required for visual purpose. Maybe use YUV format instead
@@ -143,35 +143,6 @@ def clip_throttle(value, mode="tf"):
     return np.clip(value, THROTTLE_MIN, THROTTLE_MAX)
 
 
-def parse_args():
-    """
-    Parse arguments from command line
-    returns:
-         argparse.ArgumentParser : Parsed arguments
-    """
-    arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument("--version", help="DonkeyNet version", type=int,
-                            choices=(0, 1), default=0)
-    arg_parser.add_argument("--data_dir", help="Data directory", type=str)
-    arg_parser.add_argument("--epochs", help="Number of epochs", type=int, default=20)
-    arg_parser.add_argument("--img_key", help="Key value for image array in JSON data",
-                            type=str, default="cam/image_array")
-    arg_parser.add_argument("--steering_key", help="Key value for steering in JSON data",
-                            type=str, default="user/angle")
-    arg_parser.add_argument("--throttle_key", help="Key value for throttle in JSON data",
-                            type=str, default="user/throttle")
-    arg_parser.add_argument("--save_model_path", help="Path to save for trained model",
-                            type=str, default=None)
-    arg_parser.add_argument("--retrain_model", help="Path of model to retrain",
-                            type=str, default=None)
-    arg_parser.add_argument("--verbose", help="Verbosity", dest="verbose", action="store_true")
-    arg_parser.set_defaults(verbose=False)
-    _args = arg_parser.parse_args()
-    if _args.save_model_path is None:
-        _args.save_model_path = os.path.join("models", f"DonkeyNetV{_args.version}Model")
-    return _args
-
-
 def timer_wrapper(func):
     @wraps(func)
     def wrapper_func(*args, **kwargs):
@@ -181,3 +152,56 @@ def timer_wrapper(func):
         print(f"Time taken spent in {func.__name__}: {dt:.3f} seconds!")
         return result
     return wrapper_func
+
+
+def parse_args(mode):
+    """
+    Parse arguments from command line
+    returns:
+         argparse.ArgumentParser : Parsed arguments
+    """
+    arg_parser = argparse.ArgumentParser()
+    arg_parser.add_argument("--version", help="DonkeyNet version", type=int,
+                            choices=(0, 1), default=1)
+    if mode.lower() == "train":
+        arg_parser.add_argument("--data_dir", help="Data directory", type=str)
+        arg_parser.add_argument("--epochs", help="Number of epochs", type=int, default=20)
+        arg_parser.add_argument("--img_key", help="Key value for image array in JSON data",
+                                type=str, default="cam/image_array")
+        arg_parser.add_argument("--steering_key", help="Key value for steering in JSON data",
+                                type=str, default="user/angle")
+        arg_parser.add_argument("--throttle_key", help="Key value for throttle in JSON data",
+                                type=str, default="user/throttle")
+        arg_parser.add_argument("--save_model_path", help="Path to save for trained model",
+                                type=str, default=None)
+        arg_parser.add_argument("--retrain_model", help="Path of model to retrain",
+                                type=str, default=None)
+        arg_parser.add_argument("--verbose", help="Verbosity", dest="verbose", action="store_true")
+        arg_parser.set_defaults(verbose=False)
+        _args = arg_parser.parse_args()
+        if _args.save_model_path is None:
+            _args.save_model_path = os.path.join("models", f"DonkeyNetV{_args.version}Model")
+        os.makedirs(_args.save_model_path, exist_ok=True)
+    else:
+        arg_parser.add_argument("--model_path", help="Model checkpoint directory", type=str)
+        arg_parser.add_argument("--sim_rate", help="Simulation rendering frequency in Hz", type=int, default=20)
+        arg_parser.add_argument("--throttle", help="Car throttle value", type=float, default=0.2)
+        arg_parser.add_argument("--recording_path", help="Path to save any recording data",
+                                type=str, default=None)
+        _args = arg_parser.parse_args()
+        if _args.recording_path is not None:
+            os.makedirs(_args.recording_path, exist_ok=True)
+    return _args
+
+
+class ContextManagerWrapper:
+    # A class wrapper to convert normal object into context managers
+    def __init__(self, obj, exit_method):
+        self.obj = obj
+        self.exit_method = getattr(obj, exit_method)
+
+    def __enter__(self):
+        return self.obj
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.exit_method()

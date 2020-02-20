@@ -11,7 +11,8 @@ class DonkeyNetController:
         self.input_shape = input_shape
         self.model = DonkeyNet(version=version, input_shape=input_shape)
         # TODO: Initialize global variables somewhere
-        sess.run(tf.global_variables_initializer())
+        if not tf.__version__.startswith("2"):
+            sess.run(tf.global_variables_initializer())
         self.model.restore_model(sess, os.path.join(model_path, "model.chkpt"))
 
     def run(self, img_array):

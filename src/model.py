@@ -16,11 +16,11 @@ class Model:
         self.train_op = optimizer.minimize(self.loss, var_list=self.trainable_vars)
 
     def build_network(self, layers):
+        print(f"# Building {self.scope} with {len(layers)} layers")
         output = self.input_ph
         with tf_v1.variable_scope(self.scope, reuse=True):
             for layer in layers:
                 output = layer(output)
-        print(f"Model {self.scope} with {len(layers)} layers built!\n")
         return output
 
     @property
@@ -66,16 +66,16 @@ class Model:
             file_path (str) : Destination model file path to store variables (as checkpoint)
         """
         self.saver.save(sess, file_path)
-        print(f"Model saved as '{file_path}'!")
+        print(f"# Model saved as '{file_path}'!")
 
     def restore_model(self, sess, file_path):
         """
-        Restores varibles to the session
+        Restores variables to the session
         args:
             file_path (str) : Source model file path to store variables (as checkpoint)
         """
         self.saver.restore(sess, file_path)
-        print(f"Model restored from '{file_path}'!")
+        print(f"# Model restored from '{file_path}'!")
 
 
 class DonkeyNet(Model):

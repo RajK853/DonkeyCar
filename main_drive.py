@@ -20,7 +20,7 @@ if __name__ == "__main__":
     with tf_v1.Session(config=TF_CONFIG) as sess:
         with ContextManagerWrapper(Vehicle(), exit_method="stop") as car:
             SIM_PATH = r"/home/rajk/Machine_Learning/DonkeySimLinux/donkey_sim.x86_64"
-            donkey_env = DonkeyGymEnv(SIM_PATH, port=9090, headless=0)
+            donkey_env = DonkeyGymEnv(SIM_PATH, port=9090, headless=0, env_name=args.env_name)
             car.add(donkey_env,
                     inputs=["steering", "throttle"],
                     outputs=["cam/image_array"],
@@ -40,7 +40,7 @@ if __name__ == "__main__":
                     outputs=["random/steering", "random/throttle"],
                     run_condition="drive/auto")
 
-            pid_values = {"P": -5.7e-1, "I": -7e-2, "D": -2.2e-1}
+            pid_values = {"P": 5.7e-1, "I": 7e-2, "D": 2.2e-1}
             print(f"PID values: {pid_values}")
             pid_ctr = PIDController(**pid_values, min_value=-1.0, max_value=1.0, store_n_errors=20, target_value=0.0)
             car.add(DriveSelector(pid_ctr),

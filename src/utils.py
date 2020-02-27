@@ -2,11 +2,12 @@ import os
 import cv2
 import argparse
 import numpy as np
-import ujson as json
+import pandas as pd
+import json
 from time import time
-from numba import jit, vectorize
 from functools import wraps
 from sklearn.utils import shuffle
+
 from .progress_bar import ProgressBar
 
 STEER_LIMIT_LEFT = -1.0
@@ -77,7 +78,7 @@ def matches_any_extension(file_name, extensions):
     return False
 
 
-def list_dir(dir_path, extensions=None, exclude_files=None, verbose=False):
+def list_dir(dir_path, extensions=None, exclude_files=None):
     files_names = os.listdir(dir_path)
     if extensions:
         files_names = [file_name for file_name in files_names if matches_any_extension(file_name, extensions)]
@@ -87,55 +88,67 @@ def list_dir(dir_path, extensions=None, exclude_files=None, verbose=False):
             if exclude_file_name in files_names:
                 files_names.remove(exclude_file_name)
                 removed += 1
-            if verbose:
-                print(f"  Number of files excluded: {removed}", end="\r", flush=True)
-    if verbose:
-        print(f"\n  Found {len(files_names)} files with one of these extensions {extensions} in '{dir_path}'")
+            print(f"  Number of files excluded: {removed}", end="\r", flush=True)
+    print(f"\n  Found {len(files_names)} files with one of these extensions {extensions} in '{dir_path}'")
     return files_names
 
 
 @timer_wrapper
-def load_data(data_dir, img_key, steering_key, throttle_key, extensions=None, exclude_files=None, verbose=False):
-    print("# Loading data")
-    json_files = list_dir(data_dir, extensions=extensions, exclude_files=exclude_files, verbose=verbose)
-    json_keys = (img_key, steering_key, throttle_key)
-    img_data, actions = [], []
-    pb = ProgressBar(total_iter=len(json_files), display_text="  Loading images", display_interval=10)
-    for json_file in json_files:
-        json_data = load_json(os.path.join(data_dir, json_file), include_keys=json_keys)
-        throttle = json_data[throttle_key] or 0.0
-        steering = json_data[steering_key] or 0.0
-        # TODO: Ignore data where the car was in rest
-        # TODO: BGR2RGB conversion only required for visual purpose. Maybe use YUV format instead
-        img_path = os.path.join(data_dir, json_data[img_key])
-        img = load_img(img_path, cvt_color=cv2.COLOR_BGR2RGB)
-        action = (steering, throttle)
-        img_data.append(img)
-        actions.append(action)
-        pb.step(1)
-    return np.array(img_data), np.array(actions)
+def process_json_data(data_dir, img_key="cam/image_array", steering_key="user/angle", throttle_key="user/throttle",
+                      exclude_files=None, force_process=False):
+    csv_file = os.path.join(data_dir, "processed_data.csv")
+    if (not force_process) and os.path.exists(csv_file):
+        print(f"- Processed file already present at {data_dir}!")
+    else:
+        df = pd.DataFrame()
+        json_files = list_dir(data_dir, extensions=[".json"], exclude_files=exclude_files)
+        p_bar = ProgressBar(total_iter=len(json_files), display_text="  Processing data", display_interval=10)
+        for json_file in json_files:
+            json_path = os.path.join(data_dir, json_file)
+            data = load_json(json_path, include_keys=(img_key, steering_key, throttle_key))
+            if data[steering_key] is not None and data[throttle_key] is not None:
+                df = df.append(data, ignore_index=True)
+            p_bar.step(1)
+        df.to_csv(csv_file, index=False)
+        print(f"- Data processed successfully and saved to '{csv_file}'")
+
+
+@timer_wrapper
+def load_data(data_dir, img_key, steering_key, throttle_key, force_process=False):
+    data_file = os.path.join(data_dir, "processed_data.csv")
+    process_json_data(data_dir, img_key, steering_key, throttle_key, exclude_files=["meta.json"],
+                      force_process=force_process)
+    df = pd.read_csv(data_file)
+    print(f"# Loading {len(df)} data...")
+    vec_func = np.vectorize(load_img, otypes=[np.ndarray], cache=False)
+    df[img_key] = df[img_key].apply(lambda x: os.path.join(data_dir, x))
+    images = vec_func(df[img_key])
+    df.dropna(axis="index")
+    actions = df[[steering_key, throttle_key]].values
+    return images, actions
 
 
 def data_generator(images, actions, epochs=1, batch_size=10, preprocessors=None):
-    images, actions = shuffle(images, actions)
-    total_samples = len(images)
-    _preprocessors = [None]
+    total_samples = len(actions)
+    _preprocessors = [lambda *x: x]
     if preprocessors:
         assert isinstance(preprocessors, (list, tuple, set)), \
             f"Preprocessors should be an iterator, not {type(preprocessors)}"
-        for processor in preprocessors:
-            vectorized_func = np.vectorize(processor, otypes=[np.ndarray, np.ndarray], cache=True)
-            _preprocessors.append(vectorized_func)
-    p_bar = ProgressBar(total_iter=len(actions)*len(_preprocessors), change_line_at_reset=False,
+        _preprocessors.extend(preprocessors)
+    p_bar = ProgressBar(total_iter=total_samples*len(_preprocessors), change_line_at_reset=False,
                         display_interval=batch_size)
     for epoch in range(epochs):
+        images, actions = shuffle(images, actions)
         p_bar.set_display_text(f"  Epoch {epoch+1:<2}")
         for offset in range(0, total_samples, batch_size):
             for processor in _preprocessors:
                 batch_images = np.array(images[offset:offset+batch_size])
                 batch_actions = np.array(actions[offset:offset+batch_size])
-                if processor:
-                    batch_images, batch_actions = processor(batch_images, batch_actions)
+                # TODO: Improve performance with vectorization?
+                batch_results = [processor(img, act) for img, act in zip(batch_images, batch_actions)]
+                batch_images, batch_actions = zip(*batch_results)
+                batch_images = np.array(batch_images)
+                batch_actions = np.array(batch_actions)
                 # TODO: Normalization may differ for YUV format
                 batch_images = normalize_images(batch_images)
                 p_bar.step(len(batch_actions))
@@ -161,40 +174,38 @@ def clip_throttle(value):
 
 
 def parse_args(mode):
-    """
-    Parse arguments from command line
-    returns:
-         argparse.ArgumentParser : Parsed arguments
-    """
     arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument("--version", help="DonkeyNet version", type=int,
-                            choices=(0, 1, 2), default=1)
+    arg_parser.add_argument("--version", help="DonkeyNet version", type=int)
     if mode.lower() == "train":
         arg_parser.add_argument("--data_dirs", help="Data directories", nargs="+", required=True)
         arg_parser.add_argument("--epochs", help="Number of epochs", type=int, default=20)
+        arg_parser.add_argument("--batch_size", help="Batch size while training", type=int, default=256)
+        arg_parser.add_argument("--lr", help="Learning rate", type=float, default=1e-4)
         arg_parser.add_argument("--img_key", help="Key value for image array in JSON data",
                                 type=str, default="cam/image_array")
         arg_parser.add_argument("--steering_key", help="Key value for steering in JSON data",
-                                type=str, default="user/angle")
+                                type=str, default="steering")
         arg_parser.add_argument("--throttle_key", help="Key value for throttle in JSON data",
-                                type=str, default="user/throttle")
+                                type=str, default="throttle")
         arg_parser.add_argument("--save_model_path", help="Path to save for trained model",
                                 type=str, default=None)
         arg_parser.add_argument("--retrain_model", help="Path of model to retrain",
                                 type=str, default=None)
-        arg_parser.add_argument("--verbose", help="Verbosity", dest="verbose", action="store_true", default=False)
         arg_parser.add_argument("--add_flip", help="Add flip pre-processing", dest="add_flip", action="store_true",
                                 default=False)
         arg_parser.add_argument("--add_blur", help="Add blur pre-processing", dest="add_blur", action="store_true",
                                 default=False)
+        arg_parser.add_argument("--force_process", help="Force data processing", dest="force_process",
+                                action="store_true", default=False)
         _args = arg_parser.parse_args()
         if _args.save_model_path is None:
             _args.save_model_path = os.path.join("models", f"DonkeyNetV{_args.version}Model")
         os.makedirs(_args.save_model_path, exist_ok=True)
     else:
+        arg_parser.add_argument("--cam_type", help="Camera type", type=str, default="donkey_gym")
         arg_parser.add_argument("--model_path", help="Model checkpoint directory", type=str)
-        arg_parser.add_argument("--sim_rate", help="Simulation rendering frequency in Hz", type=int, default=20)
-        arg_parser.add_argument("--throttle", help="Car throttle value", type=float, default=0.2)
+        arg_parser.add_argument("--sim_rate", help="Simulation rendering frequency in Hz", type=int, default=60)
+        arg_parser.add_argument("--throttle", help="Car throttle value", type=float, default=0.3)
         arg_parser.add_argument("--recording_path", help="Path to save any recording data", type=str, default=None)
         donkey_gym_envs = ["donkey-generated-roads-v0", "donkey-warehouse-v0",
                            "donkey-avc-sparkfun-v0", "donkey-generated-track-v0"]

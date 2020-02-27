@@ -1,26 +1,33 @@
 import tensorflow as tf
 import tensorflow.compat.v1 as tf_v1
-from .layers import get_donkey_net
+
+from src import layers
 from .utils import timer_wrapper
+
+DONKEY_NETS = [attr for attr in dir(layers) if attr.startswith("donkey_net_v")]
+
+
+def get_donkey_net(version):
+    donkey_net_name = DONKEY_NETS[version]
+    donkey_net_func = getattr(layers, donkey_net_name)
+    return donkey_net_func
 
 
 class Model:
-    def __init__(self, scope, *, input_ph, layers, target_ph, loss_func, optimizer):
+    def __init__(self, scope, *, input_ph, network_func, target_ph, loss_func, optimizer):
         self.scope = scope
         self.input_ph = input_ph
-        self.network_output = self.build_network(layers)
+        self.network_output = self.build_network(network_func)
         self.target_ph = target_ph
         self._saver = None
         self._trainable_vars = None
         self.loss = loss_func(self.target_ph, self.network_output)
         self.train_op = optimizer.minimize(self.loss, var_list=self.trainable_vars)
 
-    def build_network(self, layers):
-        print(f"# Building {self.scope} with {len(layers)} layers")
-        output = self.input_ph
+    def build_network(self, network_func):
+        print(f"# Building {network_func.__name__}")
         with tf_v1.variable_scope(self.scope, reuse=True):
-            for layer in layers:
-                output = layer(output)
+            output = network_func(self.input_ph)
         return output
 
     @property
@@ -79,10 +86,10 @@ class Model:
 
 
 class DonkeyNet(Model):
-    def __init__(self, version, *, input_shape, loss_func=None, optimizer=None):
+    def __init__(self, version, *, input_shape, output_size=1, loss_func=None, optimizer=None):
         kwargs = {"input_ph": tf_v1.placeholder(tf.float32, shape=[None, *input_shape], name="images_ph"),
-                  "layers": get_donkey_net(version),
-                  "target_ph": tf_v1.placeholder(tf.float32, shape=[None, 1], name="target_actions_ph"),
+                  "network_func": get_donkey_net(version),
+                  "target_ph": tf_v1.placeholder(tf.float32, shape=[None, output_size], name="target_actions_ph"),
                   "loss_func": loss_func or tf_v1.losses.mean_squared_error,
                   "optimizer": optimizer or tf_v1.train.AdamOptimizer(learning_rate=1e-4)}
         super(DonkeyNet, self).__init__(f"DonkeyNetV{version}Model", **kwargs)

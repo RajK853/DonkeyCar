@@ -20,9 +20,9 @@ if __name__ == "__main__":
     args = parse_args(mode="train")
     X, Y = [], []
     for data_dir in args.data_dirs:
-        _X, _Y = load_data(data_dir, extensions=[".json"], exclude_files=["meta.json"], img_key=args.img_key,
-                           steering_key=args.steering_key, throttle_key=args.throttle_key, verbose=args.verbose)
-        _Y = np.reshape(_Y[:, 0], (_Y.shape[0], 1))                            # Remove throttle readings from actions
+        _X, _Y = load_data(data_dir, img_key=args.img_key, steering_key=args.steering_key,
+                           throttle_key=args.throttle_key, force_process=args.force_process)
+        _Y = np.reshape(_Y[:, 0], (_Y.shape[0], 1))                       # Remove throttle readings from actions
         X.extend(_X)
         Y.extend(_Y)
     random_seed = randint(0, 1000)
@@ -30,7 +30,7 @@ if __name__ == "__main__":
     # Model parameters
     input_shape = X_train[0].shape
     loss_func = tf_v1.losses.mean_squared_error
-    optimizer = tf_v1.train.AdamOptimizer(learning_rate=1e-4)
+    optimizer = tf_v1.train.AdamOptimizer(learning_rate=args.lr)
     model = DonkeyNet(version=args.version, input_shape=input_shape, loss_func=loss_func, optimizer=optimizer)
     # Tensorflow session configuration
     GPU_OPTIONS = tf_v1.GPUOptions(per_process_gpu_memory_fraction=0.75)
@@ -39,12 +39,13 @@ if __name__ == "__main__":
         sess.run(tf_v1.global_variables_initializer())
         if args.retrain_model:
             model.restore_model(sess, file_path=os.path.join(args.retrain_model, "model.chkpt"))
+        # Add preprocessors
         preprocessors = []
         if args.add_flip:
-            print("- Adding flip preprocessor!")
+            print("- Added flip preprocessor!")
             preprocessors.append(flip_img)
         if args.add_blur:
-            print("- Adding blur preprocessor!")
+            print("- Added blur preprocessor!")
             preprocessors.append(blur_img)
         train_data_gen = data_generator(X_train, Y_train, epochs=args.epochs, batch_size=256,
                                         preprocessors=preprocessors)

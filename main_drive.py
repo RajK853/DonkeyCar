@@ -2,9 +2,8 @@ import os
 from donkeycar import Vehicle
 import tensorflow.compat.v1 as tf_v1
 from donkeycar.parts.camera import PiCamera
-from donkeycar.parts.dgym import DonkeyGymEnv
 from donkeycar.parts.datastore import TubHandler
-from donkeycar.parts.controller import LocalWebController
+from donkeycar.parts.web_controller import LocalWebController
 from donkeycar.parts.actuator import PCA9685, PWMSteering, PWMThrottle
 
 from src.pid_controller import PIDController
@@ -15,18 +14,15 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 # Simulation path
 SIM_PATH = r"/home/rajk/Machine_Learning/DonkeySimLinux/donkey_sim.x86_64"
-# PCA9685 variables
-PCA9685_I2C_ADDR = 0x40
-PCA9685_I2C_BUSNUM = None
 # Steering variables
-STEERING_CHANNEL = 1
-STEERING_LEFT_PWM = 460
-STEERING_RIGHT_PWM = 290
+STEERING_CHANNEL = 0
+STEERING_LEFT_PWM = 100
+STEERING_RIGHT_PWM = 260
 # Throttle variables
-THROTTLE_CHANNEL = 0
-THROTTLE_FORWARD_PWM = 500
-THROTTLE_STOPPED_PWM = 370
-THROTTLE_REVERSE_PWM = 220
+THROTTLE_CHANNEL_LEFT = 3
+THROTTLE_FORWARD_PWM_LEFT = 4000
+THROTTLE_STOPPED_PWM_LEFT = 2
+THROTTLE_REVERSE_PWM_LEFT = 1
 
 if __name__ == "__main__":
     args = parse_args(mode="drive")
@@ -35,26 +31,26 @@ if __name__ == "__main__":
     with tf_v1.Session(config=TF_CONFIG) as sess:
         with ContextManagerWrapper(Vehicle(), exit_method="stop") as car:
             if args.cam_type == "pi_cam":
-                input_shape = img_h, img_w, img_d = (120, 160, 3)
-                cam = PiCamera(image_w=img_w, image_h=img_h, image_d=img_d)
+                img_resolution = (120, 160)
+                cam = PiCamera(resolution=img_resolution, framerate=args.sim_rate)
                 car.add(cam,
-                        inputs=[],
                         outputs=["cam/image_array"],
                         threaded=True)
                 # Steering and throttle controllers
-                steering_controller = PCA9685(STEERING_CHANNEL, PCA9685_I2C_ADDR, busnum=PCA9685_I2C_BUSNUM)
+                steering_controller = PCA9685(STEERING_CHANNEL)
                 steering = PWMSteering(controller=steering_controller,
                                        left_pulse=STEERING_LEFT_PWM,
                                        right_pulse=STEERING_RIGHT_PWM)
                 car.add(steering, inputs=['steering'])
 
-                throttle_controller = PCA9685(THROTTLE_CHANNEL, PCA9685_I2C_ADDR, busnum=PCA9685_I2C_BUSNUM)
+                throttle_controller = PCA9685(THROTTLE_CHANNEL_LEFT)
                 throttle = PWMThrottle(controller=throttle_controller,
-                                       max_pulse=THROTTLE_FORWARD_PWM,
-                                       zero_pulse=THROTTLE_STOPPED_PWM,
-                                       min_pulse=THROTTLE_REVERSE_PWM)
+                                       max_pulse=THROTTLE_FORWARD_PWM_LEFT,
+                                       zero_pulse=THROTTLE_STOPPED_PWM_LEFT,
+                                       min_pulse=THROTTLE_REVERSE_PWM_LEFT)
                 car.add(throttle, inputs=['throttle'])
             elif args.cam_type == "donkey_gym":
+                from donkeycar.parts.dgym import DonkeyGymEnv
                 cam = DonkeyGymEnv(SIM_PATH, port=9090, headless=0, env_name=args.env_name)
                 input_shape = cam.env.observation_space.shape
                 car.add(cam,

@@ -7,6 +7,8 @@ class DriveSelector:
         steering, throttle = (pilot_steering, pilot_throttle) if auto_mode else (user_steering, user_throttle)
         if steering is None:
             steering = 0.0
+        if throttle is None:
+            throttle = 0.0
         if mode == "local" and self.pid_ctr is not None:
             steering = self.pid_ctr.run(steering)
         return steering, throttle, auto_mode

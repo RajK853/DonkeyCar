@@ -179,7 +179,7 @@ def parse_args(mode):
     if mode.lower() == "train":
         arg_parser.add_argument("--data_dirs", help="Data directories", nargs="+", required=True)
         arg_parser.add_argument("--epochs", help="Number of epochs", type=int, default=20)
-        arg_parser.add_argument("--batch_size", help="Batch size while training", type=int, default=256)
+        arg_parser.add_argument("--batch_size", help="Batch size while training", type=int, default=126)
         arg_parser.add_argument("--lr", help="Learning rate", type=float, default=1e-4)
         arg_parser.add_argument("--img_key", help="Key value for image array in JSON data",
                                 type=str, default="cam/image_array")
@@ -202,7 +202,7 @@ def parse_args(mode):
             _args.save_model_path = os.path.join("models", f"DonkeyNetV{_args.version}Model")
         os.makedirs(_args.save_model_path, exist_ok=True)
     else:
-        arg_parser.add_argument("--cam_type", help="Camera type", type=str, default="donkey_gym")
+        arg_parser.add_argument("--cam_type", help="Camera type", type=str, default="web_cam")
         arg_parser.add_argument("--model_path", help="Model checkpoint directory", type=str)
         arg_parser.add_argument("--sim_rate", help="Simulation rendering frequency in Hz", type=int, default=60)
         arg_parser.add_argument("--throttle", help="Car throttle value", type=float, default=0.3)
@@ -229,3 +229,13 @@ class ContextManagerWrapper:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.exit_method()
+
+
+def get_camera(cam_type):
+    if cam_type == "pi_cam":
+        from donkeycar.parts.camera import PiCamera as Camera
+    elif cam_type == "web_cam":
+        from donkeycar.parts.camera import Webcam as Camera
+    else:
+        raise TypeError(f"Invalid camera type: {cam_type}")
+    return Camera

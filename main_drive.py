@@ -1,5 +1,6 @@
 import os
 from donkeycar import Vehicle
+from collections import namedtuple
 import tensorflow.compat.v1 as tf_v1
 from donkeycar.parts.camera import PiCamera
 from donkeycar.parts.datastore import TubHandler
@@ -25,6 +26,14 @@ THROTTLE_STOPPED_PWM_LEFT = 100
 THROTTLE_REVERSE_PWM_LEFT = 0
 # Image variables
 IMAGE_RESOLUTION = (IMAGE_H, IMAGE_W, IMAGE_D) = (120, 160, 3)
+# Joystick variables
+JOYSTICK_CONFIG = dict(JOYSTICK_THROTTLE_DIR = -1.0,
+                       JOYSTICK_MAX_THROTTLE = 1.0,
+                       JOYSTICK_STEERING_SCALE = 1.0,
+                       AUTO_RECORD_ON_THROTTLE = False,
+                       JOYSTICK_DEADZONE = 0.0)
+Joystick_Config = namedtuple("Joystick_Config", ["CONTROLLER_TYPE"]+list(JOYSTICK_CONFIG.keys()))
+
 
 if __name__ == "__main__":
     args = parse_args(mode="drive")
@@ -47,13 +56,20 @@ if __name__ == "__main__":
                 car.add(cam,
                         outputs=["cam/image_array"],
                         threaded=True)
+                        
+            if args.joystick_type == "web_ctr":
+                print("Web controller available at: localhost:{WEB_CONTROLLER_PORT}")
+                ctr = LocalWebController()
+            else:
+                from donkeycar.parts.controller import get_js_controller
+                from donkeycar.parts.controller import JoyStickSub
+                js_config = Joystick_Config(**JOYSTICK_CONFIG, CONTROLLER_TYPE=args.joystick_type)
+                ctr = get_js_controller(js_config)
 
-            print("Web controller available at: localhost:{WEB_CONTROLLER_PORT}")
-            car.add(LocalWebController(),
+            car.add(ctr,
                     inputs=["cam/image_array"],
                     outputs=["user/steering", "user/throttle", "user/mode", "recording"],
                     threaded=True)
-
             donkey_net_ctr = DonkeyNetController(sess, input_shape=input_shape, model_path=args.model_path,
                                                  version=args.version, throttle=args.throttle)
             car.add(donkey_net_ctr,
@@ -62,10 +78,10 @@ if __name__ == "__main__":
                     run_condition="drive/auto")
 
             # TODO: Remove/refactor PID controller?
-            pid_values = {"P": -7e-1, "I": -1e-1, "D": -1e-1}
-            print(f"PID values: {pid_values}")
-            pid_ctr = PIDController(**pid_values, min_value=-1.0, max_value=1.0, store_n_errors=10, target_value=0.0)
-            car.add(DriveSelector(pid_ctr),
+            # pid_values = {"P": -7e-1, "I": -1e-1, "D": -1e-1}
+            # print(f"PID values: {pid_values}")
+            # pid_ctr = PIDController(**pid_values, min_value=-1.0, max_value=1.0, store_n_errors=10, target_value=0.0)
+            car.add(DriveSelector(),
                     inputs=["user/steering", "user/throttle", "donkeynet/steering", "donkeynet/throttle", "user/mode"],
                     outputs=["steering", "throttle", "drive/auto"])
 

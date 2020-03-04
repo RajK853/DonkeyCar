@@ -203,6 +203,7 @@ def parse_args(mode):
         os.makedirs(_args.save_model_path, exist_ok=True)
     else:
         arg_parser.add_argument("--cam_type", help="Camera type", type=str, default="web_cam")
+        arg_parser.add_argument("--joystick_type", help="Joystick type", type=str, default="web_ctr")
         arg_parser.add_argument("--model_path", help="Model checkpoint directory", type=str)
         arg_parser.add_argument("--sim_rate", help="Simulation rendering frequency in Hz", type=int, default=60)
         arg_parser.add_argument("--throttle", help="Car throttle value", type=float, default=0.3)
@@ -212,6 +213,7 @@ def parse_args(mode):
         arg_parser.add_argument("--env_name", help="Donkey Gym environment name", type=str,
                                 default="donkey-generated-track-v0",
                                 choices=donkey_gym_envs)
+
         _args = arg_parser.parse_args()
         if _args.recording_path is not None:
             os.makedirs(_args.recording_path, exist_ok=True)

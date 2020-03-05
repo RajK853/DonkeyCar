@@ -4,7 +4,8 @@ import tensorflow.compat.v1 as tf_v1
 from src import layers
 from .utils import timer_wrapper
 
-DONKEY_NETS = [attr for attr in dir(layers) if attr.startswith("donkey_net_v")]
+DONKEY_NET_PREFIX = "donkey_net_v"
+DONKEY_NETS = [attr for attr in dir(layers) if attr.startswith(DONKEY_NET_PREFIX)]
 
 
 def get_donkey_net(version):

@@ -21,16 +21,16 @@ STEERING_LEFT_PWM = 100
 STEERING_RIGHT_PWM = 260
 # Throttle variables
 THROTTLE_CHANNEL_LEFT = 3
-THROTTLE_FORWARD_PWM_LEFT = 1500
+THROTTLE_FORWARD_PWM_LEFT = 4000
 THROTTLE_STOPPED_PWM_LEFT = 100
 THROTTLE_REVERSE_PWM_LEFT = 0
 # Image variables
 IMAGE_RESOLUTION = (IMAGE_H, IMAGE_W, IMAGE_D) = (120, 160, 3)
 # Joystick variables
-JOYSTICK_CONFIG = dict(JOYSTICK_THROTTLE_DIR = -1.0,
-                       JOYSTICK_MAX_THROTTLE = 1.0,
-                       JOYSTICK_STEERING_SCALE = 1.0,
-                       AUTO_RECORD_ON_THROTTLE = False,
+JOYSTICK_CONFIG = dict(JOYSTICK_THROTTLE_DIR=-1.0,
+                       JOYSTICK_MAX_THROTTLE=1.0,
+                       JOYSTICK_STEERING_SCALE=1.0,
+                       AUTO_RECORD_ON_THROTTLE=False,
                        JOYSTICK_DEADZONE = 0.0)
 Joystick_Config = namedtuple("Joystick_Config", ["CONTROLLER_TYPE"]+list(JOYSTICK_CONFIG.keys()))
 
@@ -62,7 +62,6 @@ if __name__ == "__main__":
                 ctr = LocalWebController()
             else:
                 from donkeycar.parts.controller import get_js_controller
-                from donkeycar.parts.controller import JoyStickSub
                 js_config = Joystick_Config(**JOYSTICK_CONFIG, CONTROLLER_TYPE=args.joystick_type)
                 ctr = get_js_controller(js_config)
 

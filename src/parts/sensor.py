@@ -40,9 +40,8 @@ class UltraSonic(object):
         self.distance = min(distance, MAX_DISTANCE)
 
     def update(self):
-        calculate_distance = self.calculate_distance
         while self.running:
-            calculate_distance()
+            self.calculate_distance()
 
     def run_threaded(self):
         return self.distance

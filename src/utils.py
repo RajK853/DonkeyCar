@@ -129,6 +129,8 @@ def load_data(data_dir, img_key, steering_key, throttle_key, force_process=False
 
 
 def data_generator(images, actions, epochs=1, batch_size=10, preprocessors=None):
+    images = np.array(images)
+    actions = np.array(actions)
     total_samples = len(actions)
     _preprocessors = [lambda *x: x]
     if preprocessors:
@@ -137,13 +139,16 @@ def data_generator(images, actions, epochs=1, batch_size=10, preprocessors=None)
         _preprocessors.extend(preprocessors)
     p_bar = ProgressBar(total_iter=total_samples*len(_preprocessors), change_line_at_reset=False,
                         display_interval=batch_size)
+    indexes = np.array(range(total_samples))
     for epoch in range(epochs):
-        images, actions = shuffle(images, actions)
+        indexes = shuffle(indexes)
+        # images, actions = shuffle(images, actions)
         p_bar.set_display_text(f"  Epoch {epoch+1:<2}")
         for offset in range(0, total_samples, batch_size):
             for processor in _preprocessors:
-                batch_images = np.array(images[offset:offset+batch_size])
-                batch_actions = np.array(actions[offset:offset+batch_size])
+                batch_indexes = indexes[offset:offset+batch_size]
+                batch_images = images[batch_indexes]
+                batch_actions = actions[batch_indexes]
                 # TODO: Improve performance with vectorization?
                 batch_results = [processor(img, act) for img, act in zip(batch_images, batch_actions)]
                 batch_images, batch_actions = zip(*batch_results)

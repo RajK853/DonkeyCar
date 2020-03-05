@@ -17,10 +17,12 @@ class Model:
     def __init__(self, scope, *, input_ph, network_func, target_ph, loss_func, optimizer):
         self.scope = scope
         self.input_ph = input_ph
-        self.network_output = self.build_network(network_func)
         self.target_ph = target_ph
+        self.meta = self.build_network(network_func)
+        self.network_output = self.meta.pop("output")
         self._saver = None
         self._trainable_vars = None
+        # TODO: Define loss function and training operation outside
         self.loss = loss_func(self.target_ph, self.network_output)
         self.train_op = optimizer.minimize(self.loss, var_list=self.trainable_vars)
 

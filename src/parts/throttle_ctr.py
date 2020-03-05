@@ -5,7 +5,7 @@ HIGH = GPIO.HIGH
 OUT = GPIO.OUT
 
 
-class ThrottleGPIOController:
+class ThrottleGPIOController(object):
     def __init__(self, pwm, ain1, ain2, stby):
         self.pins = self.pwm, self.ain1, self.ain2, self.stby = (pwm, ain1, ain2, stby)
         GPIO.setmode(GPIO.BOARD)
@@ -32,3 +32,4 @@ class ThrottleGPIOController:
 
     def shutdown(self):
         self._set_all(LOW, call_func=GPIO.output)
+        GPIO.cleanup()

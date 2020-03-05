@@ -12,13 +12,13 @@ class ThrottleGPIOController:
         self.setup()
 
     def setup(self):
-        self._set_all(OUT, set_func=GPIO.setup)
+        self._set_all(OUT, call_func=GPIO.setup)
 
-    def _set_all(self, value, set_func=GPIO.output):
-        assert  set_func in (GPIO.setup, GPIO.output), f"Invalid Rpi.GPIO setup function: {set_func.__name__} received!"
+    def _set_all(self, value, call_func=GPIO.output):
+        assert call_func in (GPIO.setup, GPIO.output), f"Invalid Rpi.GPIO setup function: {call_func.__name__} received!"
         assert value in (LOW, HIGH, OUT), f"Invalid pin value: {value} received!"
         for pin in self.pins:
-            set_func(pin, value)
+            call_func(pin, value)
 
     def run(self, throttle):
         if throttle > 0:
@@ -30,5 +30,5 @@ class ThrottleGPIOController:
             throttle *= -1
         return throttle
 
-    def close(self):
-        self._set_all(LOW, set_func=GPIO.output)
+    def shutdown(self):
+        self._set_all(LOW, call_func=GPIO.output)

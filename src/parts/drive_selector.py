@@ -12,3 +12,6 @@ class DriveSelector:
         if mode == "local" and self.pid_ctr is not None:
             steering = self.pid_ctr.run(steering)
         return steering, throttle, auto_mode
+
+    def shutdown(self):
+        pass

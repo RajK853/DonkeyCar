@@ -11,13 +11,19 @@ class DonkeyNetController:
         self.version = version
         self.input_shape = input_shape
         self.model = DonkeyNet(version=version, input_shape=input_shape)
+        self.output_size = self.model.meta["output_size"]
         sess.run(tf.global_variables_initializer())
         self.model.restore_model(sess, os.path.join(model_path, "model.chkpt"))
 
     def run(self, img_array):
         norm_img_array = normalize_images(img_array)
-        steering = self.model.predict(self.sess, [norm_img_array])
-        return steering, self.throttle
+        action = self.model.predict(self.sess, [norm_img_array])
+        if self.output_size == 1:
+            steering = action
+            throttle = self.throttle
+        else:
+            steering, throttle = action
+        return steering, throttle
 
     def shutdown(self):
         self.sess.close()

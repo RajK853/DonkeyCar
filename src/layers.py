@@ -17,7 +17,7 @@ def donkey_net_v0(input_ph):
     layer_out = Dense(units=32, activation="relu", kernel_regularizer=l2(0.001))(layer_out)
     layer_out = Dense(units=1)(layer_out)
     layer_out = Lambda(clip_steering_tf)(layer_out)
-    return layer_out
+    return {"output_size": 1, "output": layer_out}
 
 
 def donkey_net_v1(input_ph):
@@ -36,7 +36,7 @@ def donkey_net_v1(input_ph):
     layer_out = Dropout(0.1)(layer_out)
     layer_out = Dense(units=1)(layer_out)
     layer_out = Lambda(clip_steering_tf)(layer_out)
-    return layer_out
+    return {"output_size": 1, "output": layer_out}
 
 
 def donkey_net_v2(input_ph):
@@ -53,4 +53,4 @@ def donkey_net_v2(input_ph):
     layer_out = Dropout(0.1)(layer_out)
     layer_out = Dense(units=1)(layer_out)
     layer_out = Lambda(clip_steering_tf)(layer_out)
-    return layer_out
+    return {"output_size": 1, "output": layer_out}

@@ -1,5 +1,6 @@
 import tensorflow as tf
 import tensorflow.compat.v1 as tf_v1
+import numpy as np
 
 from src import layers
 from .utils import timer_wrapper
@@ -15,34 +16,48 @@ def get_donkey_net(version):
 
 
 class Model:
-    def __init__(self, scope, *, input_ph, network_func, target_ph, loss_func, optimizer):
+    def __init__(self, scope, *, input_phs, network_func, target_phs, loss_func, optimizer):
         self.scope = scope
-        self.input_ph = input_ph
-        self.target_ph = target_ph
-        self.meta = self.build_network(network_func)
-        self.network_output = self.meta.pop("output")
+        self.input_phs = input_phs
+        self.target_phs = target_phs
+        self.network_outputs = self.build_network(network_func)
+        self.input_num = len(input_phs)
+        self.output_num = len(self.network_outputs)
+        assert self.output_num == len(self.target_phs), \
+            "Number of network output tensors and target_phs should be equal"
         self._saver = None
         self._trainable_vars = None
         # TODO: Define loss function and training operation outside
-        self.loss = loss_func(self.target_ph, self.network_output)
-        self.train_op = optimizer.minimize(self.loss, var_list=self.trainable_vars)
+        self.losses = []
+        self.train_ops = []
+        self.setup_loss(loss_func, optimizer)
+
+    def setup_loss(self, loss_func, optimizer):
+        for i in range(self.output_num):
+            target_ph = self.target_phs[i]
+            network_output = self.network_outputs[i]
+            loss = loss_func(target_ph, network_output)
+            self.losses.append(loss)
+            self.train_ops.append(optimizer.minimize(loss, var_list=self.trainable_vars))
 
     def build_network(self, network_func):
         print(f"# Building {network_func.__name__}")
         with tf_v1.variable_scope(self.scope, reuse=True):
-            output = network_func(self.input_ph)
+            output = network_func(*self.input_phs)
         return output
 
     @property
     def input(self):
-        return self.input_ph
+        return self.input_phs
 
     @property
     def output(self):
-        return tf.squeeze(self.network_output)
+        return self.network_outputs
 
     def predict(self, sess, inputs):
-        outputs = sess.run(self.output, feed_dict={self.input_ph: inputs})
+        feed_dict = self.get_feed_dict(inputs)
+        outputs = sess.run(self.output, feed_dict=feed_dict)
+        outputs = np.squeeze(outputs)
         return outputs
 
     @property
@@ -52,14 +67,23 @@ class Model:
             self._trainable_vars = sorted(self.trainable_vars, key=lambda var: var.name)
         return self._trainable_vars
 
+    def get_feed_dict(self, inputs, targets=None):
+        feed_dict = {self.input_phs[i]: inputs[i] for i in range(self.input_num)}
+        if targets is not None:
+            feed_dict.update({self.target_phs[i]: targets[:, i] for i in range(self.output_num)})
+        return feed_dict
+
     def run_batch(self, sess, batch_inputs, batch_targets, training=False):
-        sess_runs = [self.loss, self.train_op] if training else [self.loss]
-        loss, *_ = sess.run(sess_runs, feed_dict={self.input_ph: batch_inputs, self.target_ph: batch_targets})
+        sess_runs = self.losses + self.train_ops if training else self.losses
+        feed_dict = self.get_feed_dict(batch_inputs, batch_targets)
+        result = sess.run(sess_runs, feed_dict=feed_dict)
+        loss = result[:self.output_num]
         return loss
 
     @timer_wrapper
     def run(self, sess, data_gen, training=False):
         losses = [self.run_batch(sess, inputs, targets, training=training) for inputs, targets in data_gen]
+        losses = np.squeeze(losses)
         print()
         return losses
 
@@ -89,10 +113,20 @@ class Model:
 
 
 class DonkeyNet(Model):
-    def __init__(self, version, *, input_shape, output_size=1, loss_func=None, optimizer=None):
-        kwargs = {"input_ph": tf_v1.placeholder(tf.float32, shape=[None, *input_shape], name="images_ph"),
-                  "network_func": get_donkey_net(version),
-                  "target_ph": tf_v1.placeholder(tf.float32, shape=[None, output_size], name="target_actions_ph"),
-                  "loss_func": loss_func or tf_v1.losses.mean_squared_error,
-                  "optimizer": optimizer or tf_v1.train.AdamOptimizer(learning_rate=1e-4)}
-        super(DonkeyNet, self).__init__(f"DonkeyNetV{version}Model", **kwargs)
+    def __init__(self, version, *, input_shape, config, loss_func=None, optimizer=None):
+        input_phs = [tf_v1.placeholder(tf.float32, shape=[None, *input_shape], name="images_ph")]
+        if config.SEQUENCE_LENGTH > 1:
+            sensor_shape = [None, config.SEQUENCE_LENGTH, config.SENSOR_NUM]
+        else:
+            sensor_shape = [None, config.SENSOR_NUM]
+        target_shape = [None, 1]
+        if config.INCLUDE_SENSORS:
+            input_phs.append(tf_v1.placeholder(tf.float32, shape=sensor_shape, name="sensors_ph"))
+        target_phs = [tf_v1.placeholder(tf.float32, shape=target_shape, name="steering_ph")]
+        if config.INCLUDE_THROTTLE:
+            target_phs.append(tf_v1.placeholder(tf.float32, shape=target_shape, name="throttle_ph"))
+        loss_func = loss_func or tf_v1.losses.mean_squared_error
+        optimizer = optimizer or tf_v1.train.AdamOptimizer(learning_rate=1e-4)
+        network_func = get_donkey_net(version)
+        super(DonkeyNet, self).__init__(f"DonkeyNetV{version}Model", input_phs=input_phs, target_phs=target_phs,
+                                        network_func=network_func, loss_func=loss_func, optimizer=optimizer)

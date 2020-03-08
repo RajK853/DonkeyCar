@@ -26,7 +26,7 @@ class Model:
         assert self.output_num == len(self.target_phs), \
             "Number of network output tensors and target_phs should be equal"
         self._saver = None
-        self._trainable_vars = None
+        self._trainable_vars = {}
         # TODO: Define loss function and training operation outside
         self.losses = []
         self.train_ops = []
@@ -37,8 +37,9 @@ class Model:
             target_ph = self.target_phs[i]
             network_output = self.network_outputs[i]
             loss = loss_func(target_ph, network_output)
+            var_scope = target_ph.name.split("_")[0]
             self.losses.append(loss)
-            self.train_ops.append(optimizer.minimize(loss, var_list=self.trainable_vars))
+            self.train_ops.append(optimizer.minimize(loss, var_list=self.trainable_vars(var_scope)))
 
     def build_network(self, network_func):
         print(f"# Building {network_func.__name__}")
@@ -60,12 +61,20 @@ class Model:
         outputs = np.squeeze(outputs)
         return outputs
 
-    @property
-    def trainable_vars(self):
-        if self._trainable_vars is None:
-            self._trainable_vars = tf_v1.get_collection(tf_v1.GraphKeys.TRAINABLE_VARIABLES, scope=self.scope)
-            self._trainable_vars = sorted(self.trainable_vars, key=lambda var: var.name)
-        return self._trainable_vars
+    def trainable_vars(self, var_scope):
+        if var_scope == "main":
+            main_vars = []
+        else:
+            main_vars = self.trainable_vars("main")
+            var_scope = "/".join(("main", var_scope))
+        var_scope = "/".join((self.scope, var_scope))
+        if var_scope not in self._trainable_vars.keys():
+            print(f"  Gathering trainable variables from scope '{var_scope}'")
+            trainable_vars = tf_v1.get_collection(tf_v1.GraphKeys.TRAINABLE_VARIABLES, scope=var_scope)
+            trainable_vars.extend(main_vars)
+            trainable_vars = sorted(trainable_vars, key=lambda var: var.name)
+            self._trainable_vars[var_scope] = trainable_vars
+        return self._trainable_vars[var_scope]
 
     def get_feed_dict(self, inputs, targets=None):
         feed_dict = {self.input_phs[i]: inputs[i] for i in range(self.input_num)}

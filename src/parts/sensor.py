@@ -1,5 +1,6 @@
 import RPi.GPIO as GPIO
 from time import time, sleep
+from numpy.random import uniform
 
 LOW = GPIO.LOW
 HIGH = GPIO.HIGH
@@ -13,7 +14,7 @@ class UltraSonic(object):
         self.trig_pin = trig_pin
         self.echo_pin = echo_pin
         self.trig_time = trig_time
-        self.distance = MAX_DISTANCE
+        self._distance = MAX_DISTANCE
         GPIO.setmode(mode)
         self.setup()
         self.running = True
@@ -27,6 +28,16 @@ class UltraSonic(object):
         sleep(self.trig_time)
         GPIO.output(self.trig_pin, LOW)
 
+    @property
+    def distance(self):
+        return self._distance
+
+    @distance.setter
+    def distance(self, value):
+        dist = min(value, MAX_DISTANCE)
+        dist = round(dist, 4)
+        self._distance = dist
+
     def calculate_distance(self):
         self.gen_pulse()
         echo_pin = self.echo_pin
@@ -37,7 +48,7 @@ class UltraSonic(object):
             t1 = time()
         dt = t1 - t0
         distance = 171.5 * dt  # Equals to (343 [m/s] * dt [s])/2
-        self.distance = min(distance, MAX_DISTANCE)
+        self.distance = distance
 
     def update(self):
         while self.running:
@@ -53,3 +64,36 @@ class UltraSonic(object):
     def shutdown(self):
         self.running = False
         GPIO.cleanup()
+
+
+class FakeSensor(object):
+    def __init__(self):
+        self.running = True
+        self._distance = MAX_DISTANCE
+
+    @property
+    def distance(self):
+        return self._distance
+
+    @distance.setter
+    def distance(self, value):
+        dist = min(value, MAX_DISTANCE)
+        dist = round(dist, 4)
+        self._distance = dist
+
+    def calculate_distance(self):
+        self.distance = uniform(0.6, MAX_DISTANCE)
+
+    def update(self):
+        while self.running:
+            self.calculate_distance()
+
+    def run_threaded(self):
+        return self.distance
+
+    def run(self):
+        self.calculate_distance()
+        return self.distance
+
+    def shutdown(self):
+        self.running = False

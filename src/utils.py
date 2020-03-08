@@ -12,8 +12,8 @@ from .progress_bar import ProgressBar
 
 STEER_LIMIT_LEFT = -1.0
 STEER_LIMIT_RIGHT = 1.0
-THROTTLE_MIN = 0.0
-THROTTLE_MAX = 5.0
+THROTTLE_MIN = -1.0
+THROTTLE_MAX = 1.0
 
 
 def timer_wrapper(func):
@@ -22,7 +22,7 @@ def timer_wrapper(func):
         t0 = time()
         result = func(*args, **kwargs)
         dt = time()-t0
-        print(f"- Function '{func.__name__}' took {dt:.3f} seconds!")
+        print(f"- Function '{func.__name__}' took {dt:.3f} seconds!\n")
         return result
     return wrapper_func
 
@@ -33,18 +33,21 @@ def crop_img(img, crop_dim):
     return img
 
 
-def flip_img(img, action):
+def flip_img(img, action, sensor_data=None):
     flipped_img = cv2.flip(img, 1)
     # Make changes in the copy of action array
     action = action.copy()
     action[0] *= -1              # Flip steering direction
+    if sensor_data is not None:
+        sensor_data = np.fliplr(sensor_data)
     # TODO: Swap right and left ultrasonic sensor readings
-    return flipped_img, action
+    # TODO: Then return sensor data too
+    return flipped_img, action, sensor_data
 
 
-def blur_img(img, action):
+def blur_img(img, action, sensor_data=None):
     img = cv2.GaussianBlur(img, (9, 9), 0)
-    return img, action
+    return img, action, sensor_data
 
 
 def normalize_images(images):
@@ -94,70 +97,103 @@ def list_dir(dir_path, extensions=None, exclude_files=None):
 
 
 @timer_wrapper
-def process_json_data(data_dir, img_key="cam/image_array", steering_key="user/angle", throttle_key="user/throttle",
-                      exclude_files=None, force_process=False):
+def process_json_data(data_dir, include_keys, exclude_files=None, force_process=False):
     csv_file = os.path.join(data_dir, "processed_data.csv")
     if (not force_process) and os.path.exists(csv_file):
         print(f"- Processed file already present at {data_dir}!")
+        df = pd.read_csv(csv_file)
     else:
         df = pd.DataFrame()
         json_files = list_dir(data_dir, extensions=[".json"], exclude_files=exclude_files)
         p_bar = ProgressBar(total_iter=len(json_files), display_text="  Processing data", display_interval=10)
         for json_file in json_files:
             json_path = os.path.join(data_dir, json_file)
-            data = load_json(json_path, include_keys=(img_key, steering_key, throttle_key))
-            if data[steering_key] is not None and data[throttle_key] is not None:
-                df = df.append(data, ignore_index=True)
+            data = load_json(json_path, include_keys=include_keys)
+            df = df.append(data, ignore_index=True)
             p_bar.step(1)
         df.to_csv(csv_file, index=False)
         print(f"- Data processed successfully and saved to '{csv_file}'")
+    return df
 
 
 @timer_wrapper
-def load_data(data_dir, img_key, steering_key, throttle_key, force_process=False):
-    data_file = os.path.join(data_dir, "processed_data.csv")
-    process_json_data(data_dir, img_key, steering_key, throttle_key, exclude_files=["meta.json"],
-                      force_process=force_process)
-    df = pd.read_csv(data_file)
+def load_data(data_dir, config, force_process=False):
+    img_key = config.IMG_KEY
+    steering_key = config.STEERING_KEY
+    throttle_key = config.THROTTLE_KEY
+    sensor_keys = config.SENSOR_KEYS
+    input_keys = [img_key]
+    action_keys = [steering_key]
+    if config.SENSOR_NUM > 0:
+        input_keys.extend(sensor_keys)
+    if config.INCLUDE_THROTTLE:
+        action_keys.append(throttle_key)
+    include_keys = input_keys + action_keys
+    df = process_json_data(data_dir, include_keys=include_keys, exclude_files=["meta.json"],
+                           force_process=force_process)
     print(f"# Loading {len(df)} data...")
-    vec_func = np.vectorize(load_img, otypes=[np.ndarray], cache=False)
     df[img_key] = df[img_key].apply(lambda x: os.path.join(data_dir, x))
+    vec_func = np.vectorize(load_img, otypes=[np.ndarray], cache=False)
     images = vec_func(df[img_key])
-    df.dropna(axis="index")
-    actions = df[[steering_key, throttle_key]].values
-    return images, actions
+    actions = df[action_keys].values
+    if config.INCLUDE_SENSORS:
+        sensor_data = df[sensor_keys].values
+    else:
+        sensor_data = []
+    return images, sensor_data, actions
 
 
-def data_generator(images, actions, epochs=1, batch_size=10, preprocessors=None):
+def data_generator(images, actions, epochs=1, batch_size=10, preprocessors=None, sensor_data=None, sequence=1):
     images = np.array(images)
     actions = np.array(actions)
-    total_samples = len(actions)
-    _preprocessors = [lambda *x: x]
+    actions = actions.reshape((*actions.shape, 1))
+    sensor_data_present = sensor_data is not None and (len(sensor_data) > 0)
+    if sensor_data_present:
+        sensor_data = np.array(sensor_data)
+    total_samples = len(images)
+    _preprocessors = [blur_img]
     if preprocessors:
         assert isinstance(preprocessors, (list, tuple, set)), \
             f"Preprocessors should be an iterator, not {type(preprocessors)}"
         _preprocessors.extend(preprocessors)
-    p_bar = ProgressBar(total_iter=total_samples*len(_preprocessors), change_line_at_reset=False,
-                        display_interval=batch_size)
     indexes = np.array(range(total_samples))
+    make_sequence = sequence > 1
+    start_index = sequence-1 if make_sequence else 0
+    p_bar = ProgressBar(total_iter=(total_samples-start_index)*len(_preprocessors), change_line_at_reset=False,
+                        display_interval=batch_size)
     for epoch in range(epochs):
         indexes = shuffle(indexes)
-        # images, actions = shuffle(images, actions)
         p_bar.set_display_text(f"  Epoch {epoch+1:<2}")
-        for offset in range(0, total_samples, batch_size):
+
+        for offset in range(start_index, total_samples, batch_size):
+            batch_indexes = indexes[offset:offset + batch_size]
+            actual_batch_size = len(batch_indexes)
+            if make_sequence:
+                batch_indexes = np.hstack([batch_indexes] + [batch_indexes.copy() - i for i in range(1, sequence)])
+            batch_images = images[batch_indexes]
+            batch_actions = actions[batch_indexes]
+            if sensor_data_present:
+                batch_sensor_data = sensor_data[batch_indexes]
+            else:
+                batch_sensor_data = [None]*len(batch_indexes)
             for processor in _preprocessors:
-                batch_indexes = indexes[offset:offset+batch_size]
-                batch_images = images[batch_indexes]
-                batch_actions = actions[batch_indexes]
                 # TODO: Improve performance with vectorization?
-                batch_results = [processor(img, act) for img, act in zip(batch_images, batch_actions)]
-                batch_images, batch_actions = zip(*batch_results)
-                batch_images = np.array(batch_images)
-                batch_actions = np.array(batch_actions)
+                batch_results = [processor(img, act, sen)
+                                 for img, act, sen in zip(batch_images, batch_actions, batch_sensor_data)]
+                _batch_images, _batch_actions, _batch_sensor_data = zip(*batch_results)
+                _batch_images = np.array(_batch_images)
+                _batch_actions = np.array(_batch_actions[:actual_batch_size])
+                _batch_sensor_data = np.array(_batch_sensor_data)
                 # TODO: Normalization may differ for YUV format
-                batch_images = normalize_images(batch_images)
-                p_bar.step(len(batch_actions))
-                yield batch_images, batch_actions
+                _batch_images = normalize_images(_batch_images)
+                if make_sequence:
+                    _batch_images = _batch_images.reshape((actual_batch_size, sequence, *_batch_images.shape[1:]))
+                    _batch_sensor_data = _batch_sensor_data.reshape((actual_batch_size, sequence, *_batch_sensor_data.shape[1:]))
+                p_bar.step(actual_batch_size)
+                if sensor_data_present:
+                    yield [_batch_images, _batch_sensor_data], _batch_actions
+                else:
+                    yield [_batch_images], _batch_actions
 
 
 def clip_steering_tf(value):
@@ -182,7 +218,8 @@ def parse_args(mode):
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument("--version", help="DonkeyNet version", type=int)
     if mode.lower() == "train":
-        arg_parser.add_argument("--data_dirs", help="Data directories", nargs="+", required=True)
+        arg_parser.add_argument("--train_data_dirs", help="Train data directories", nargs="+", required=True)
+        arg_parser.add_argument("--test_data_dirs", help="Test data directories", nargs="+", required=True)
         arg_parser.add_argument("--epochs", help="Number of epochs", type=int, default=20)
         arg_parser.add_argument("--batch_size", help="Batch size while training", type=int, default=126)
         arg_parser.add_argument("--lr", help="Learning rate", type=float, default=1e-4)
@@ -198,8 +235,6 @@ def parse_args(mode):
                                 type=str, default=None)
         arg_parser.add_argument("--add_flip", help="Add flip pre-processing", dest="add_flip", action="store_true",
                                 default=False)
-        arg_parser.add_argument("--add_blur", help="Add blur pre-processing", dest="add_blur", action="store_true",
-                                default=False)
         arg_parser.add_argument("--force_process", help="Force data processing", dest="force_process",
                                 action="store_true", default=False)
         _args = arg_parser.parse_args()
@@ -207,8 +242,6 @@ def parse_args(mode):
             _args.save_model_path = os.path.join("models", f"DonkeyNetV{_args.version}Model")
         os.makedirs(_args.save_model_path, exist_ok=True)
     else:
-        arg_parser.add_argument("--cam_type", help="Camera type", type=str, default="web_cam")
-        arg_parser.add_argument("--joystick_type", help="Joystick type", type=str, default="web_ctr")
         arg_parser.add_argument("--model_path", help="Model checkpoint directory", type=str)
         arg_parser.add_argument("--sim_rate", help="Simulation rendering frequency in Hz", type=int, default=60)
         arg_parser.add_argument("--throttle", help="Car throttle value", type=float, default=0.3)

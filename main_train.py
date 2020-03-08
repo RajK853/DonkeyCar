@@ -54,11 +54,11 @@ if __name__ == "__main__":
                                         batch_size=256, preprocessors=preprocessors, sequence=config.SEQUENCE_LENGTH)
         test_data_gen = data_generator(test_images, test_actions, sensor_data=test_sensor_data, batch_size=1,
                                        sequence=config.SEQUENCE_LENGTH)
-        print("# Training the model!")
+        print("\n# Training the model!")
         train_losses = model.run(sess, data_gen=train_data_gen, training=True)
         mean_train_loss = np.mean(train_losses)
         print(f"  Mean training loss: {mean_train_loss:.3f}")
-        print("# Testing the model")
+        print("\n# Testing the model")
         test_losses = model.run(sess, data_gen=test_data_gen, training=False)
         model.save_model(sess, os.path.join(args.save_model_path, "model.chkpt"))
         mean_test_loss = np.mean(test_losses)

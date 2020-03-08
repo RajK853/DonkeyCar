@@ -226,22 +226,15 @@ def donkey_net_v8(input_ph, *_):
 def donkey_net_v9(input_ph, *_):
     with tf_v1.variable_scope("main", reuse=True):
         layer_out = TD(Cropping2D(((40, 0), (0, 0)), data_format="channels_last"))(input_ph)
-        layer_out = TD(Conv2D(filters=24, kernel_size=5, strides=2, activation="relu"))(layer_out)
-        layer_out = TD(Conv2D(filters=32, kernel_size=5, strides=2, activation="relu"))(layer_out)
         layer_out = TD(Conv2D(filters=64, kernel_size=5, strides=2, activation="relu"))(layer_out)
-        layer_out = TD(Conv2D(filters=64, kernel_size=3, strides=1, activation="relu"))(layer_out)
-        layer_out = TD(Conv2D(filters=64, kernel_size=3, strides=1, activation="relu"))(layer_out)
+        layer_out = TD(Conv2D(filters=32, kernel_size=5, strides=2, activation="relu"))(layer_out)
+        layer_out = TD(Conv2D(filters=24, kernel_size=5, strides=2, activation="relu"))(layer_out)
         layer_out = TD(Flatten())(layer_out)
-        layer_out = TD(Dense(units=100, activation="relu"))(layer_out)
-        layer_out = TD(Dropout(0.1))(layer_out)
-        layer_out = LSTM(32, return_sequences=True)(layer_out)
-        layer_out = Dropout(0.1)(layer_out)
-        layer_out = LSTM(32, return_sequences=False)(layer_out)
+        layer_out = LSTM(64, activation="tanh")(layer_out)
+        layer_out = Dropout(0.3)(layer_out)
 
     with tf_v1.variable_scope("steering", reuse=True):
         steering = Dense(units=50, activation="relu")(layer_out)
-        steering = Dropout(0.1)(steering)
-        steering = Dense(units=10, activation="relu")(steering)
         steering = Dropout(0.1)(steering)
         steering = Dense(units=1, activation="linear")(steering)
         steering = Lambda(clip_steering_tf)(steering)

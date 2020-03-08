@@ -72,7 +72,7 @@ class Model:
             trainable_vars.extend(main_vars)
             trainable_vars = sorted(trainable_vars, key=lambda var: var.name)
             self._trainable_vars[var_scope] = trainable_vars
-            print(f"Loaded trainable variables in '{var_scope}'")
+            print(f"  Loaded trainable variables in '{var_scope}'")
         return self._trainable_vars[var_scope]
 
     def get_feed_dict(self, inputs, targets=None):

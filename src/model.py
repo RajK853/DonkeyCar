@@ -66,14 +66,13 @@ class Model:
             main_vars = []
         else:
             main_vars = self.trainable_vars("main")
-            var_scope = "/".join(("main", var_scope))
         var_scope = "/".join((self.scope, var_scope))
         if var_scope not in self._trainable_vars.keys():
-            print(f"  Gathering trainable variables from scope '{var_scope}'")
             trainable_vars = tf_v1.get_collection(tf_v1.GraphKeys.TRAINABLE_VARIABLES, scope=var_scope)
             trainable_vars.extend(main_vars)
             trainable_vars = sorted(trainable_vars, key=lambda var: var.name)
             self._trainable_vars[var_scope] = trainable_vars
+            print(f"Loaded trainable variables in '{var_scope}'")
         return self._trainable_vars[var_scope]
 
     def get_feed_dict(self, inputs, targets=None):

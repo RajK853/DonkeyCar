@@ -10,13 +10,10 @@ from src.arg_parser import parse_args
 from src.wrappers import ContextManagerWrapper
 from src.utils import get_camera, copy_attributes, load_model
 from src.parts import DonkeyNetController, NullController, DriveSelector, ThrottleGPIOController, UltraSonic, \
-    SensorPrinter, DonkeyNetClassifierController
+    ConsolePrinter, DonkeyNetClassifierController
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-# GPU_OPTIONS = tf_v1.GPUOptions(per_process_gpu_memory_fraction=0.5, allow_growth=True)
-# TF_CONFIG = tf_v1.ConfigProto(gpu_options=GPU_OPTIONS)
-# tf_v1.keras.backend.set_session(tf_v1.Session(config=TF_CONFIG))
 
 
 if __name__ == "__main__":
@@ -78,9 +75,8 @@ if __name__ == "__main__":
                 inputs=["user/steering", "user/throttle", "donkeynet/steering", "donkeynet/throttle", "user/mode"],
                 outputs=["steering", "throttle", "drive/auto"])
 
-        car.add(SensorPrinter(sensor_names=["classifier/prob", "classifier/parked", "steering"],
-                              print_length=100),
-                inputs=["classifier/prob", "classifier/parked", "steering"])
+        inputs = ["classifier/prob", "classifier/parked", "steering"]
+        car.add(ConsolePrinter(input_names=inputs, print_length=100), inputs=inputs)
 
         if args.classifier_model_path is not None:
             graph_2, sess_2, classifier_model = load_model(os.path.join(args.classifier_model_path, "classifier.h5"))

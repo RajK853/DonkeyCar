@@ -17,7 +17,7 @@ class ProgressBar:
     def reset(self):
         self._current_iter = 0
         if self.change_line:
-            print("")
+            print()
 
     def step(self, num=1):
         self._current_iter = min(self._current_iter + num, self.total_iter)
@@ -26,6 +26,6 @@ class ProgressBar:
         current_bar = bar_size*self.done_char
         if (self._current_iter == self.total_iter) or (not self._current_iter%self.display_interval):
             print(f"\r{self.display_text}: {current_bar:{self.undone_char}<{self.max_bar_size}}"
-                  f" {100 * progress_ratio:>6.2f}% ({self._current_iter:>3}/{self.total_iter:<3})", end="")
+                  f" {100 * progress_ratio:>6.2f}% ({self._current_iter:>3}/{self.total_iter:<3})", flush=True, end="")
         if self._current_iter == self.total_iter:
             self.reset()

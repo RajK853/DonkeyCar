@@ -35,5 +35,9 @@ SENSOR_NUM = len(SENSOR_KEYS)
 TRIG_TIME = 100e-6
 SENSOR_TIMEOUT = 0.3    # seconds
 MAX_DISTANCE = 2.0      # meters
-# Classifier
+# Classifier variables
 threshold_confidence = 0.8
+# Other variables
+predict_throttle = False
+using_sensors = True
+sequence_length = 1

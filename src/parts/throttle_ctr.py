@@ -1,21 +1,22 @@
 import RPi.GPIO as GPIO
+from . import BasePart
 
 LOW = GPIO.LOW
 HIGH = GPIO.HIGH
 OUT = GPIO.OUT
 
 
-class ThrottleGPIOController(object):
-    def __init__(self, pwm, ain1, ain2, stby):
+class ThrottleGPIOController(BasePart):
+    def __init__(self, pwm, ain1, ain2, stby, mode=GPIO.BOARD):
         self.pins = self.pwm, self.ain1, self.ain2, self.stby = (pwm, ain1, ain2, stby)
-        GPIO.setmode(GPIO.BOARD)
+        GPIO.setmode(mode)
         self.setup()
 
     def setup(self):
         self._set_all(OUT, call_func=GPIO.setup)
 
     def _set_all(self, value, call_func=GPIO.output):
-        assert call_func in (GPIO.setup, GPIO.output), f"Invalid Rpi.GPIO setup function: {call_func.__name__} received!"
+        assert call_func in (GPIO.setup, GPIO.output), f"Invalid GPIO call function: {call_func.__name__} received!"
         assert value in (LOW, HIGH, OUT), f"Invalid pin value: {value} received!"
         for pin in self.pins:
             call_func(pin, value)

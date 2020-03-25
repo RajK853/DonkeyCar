@@ -1,63 +1,113 @@
-import os
-from numpy import array as np_array
-import tensorflow.compat.v1 as tf_v1
-from ..model import DonkeyNet
-from ..utils import normalize_images
+import numpy as np
+
+from .base import BasePart
+from ..image_processing import normalize_images
 
 
-class DonkeyNetController:
-    def __init__(self, sess, input_shape, model_path, config, version=1, throttle=0.15):
+class DonkeyNetController(BasePart):
+    def __init__(self, graph, sess, model, config, throttle=0.15):
+        self.graph = graph
         self.sess = sess
         self.throttle = throttle
-        self.version = version
-        self.input_shape = input_shape
-        self.buffer_size = config.SEQUENCE_LENGTH
-        self.replay_buffer = {"images":[], "sensor_data":[]}
-        self.model = DonkeyNet(version=version, input_shape=input_shape, config=config)
-        self.output_size = self.model.output_num
-        sess.run(tf_v1.global_variables_initializer())
-        self.model.restore_model(sess, os.path.join(model_path, "model.chkpt"))
+        self.sequence_len = config.sequence_length
+        self.using_sensors = config.using_sensors
+        self.replay_buffer = {"images": [], "sensor_data": []}
+        self.model = model
 
     def store(self, key, value):
-        buffer = self.replay_buffer[key]
-        if len(buffer) > self.buffer_size:
-            buffer.pop(0)
-        while len(buffer) < self.buffer_size:
-            buffer.append(value)
-        return np_array(buffer)
+        if len(self.replay_buffer[key]) > self.sequence_len:
+            self.replay_buffer[key].pop(0)
+        while len(self.replay_buffer[key]) < self.sequence_len:
+            self.replay_buffer[key].append(value)
+        _buffer = np.array(self.replay_buffer[key])
+        if self.sequence_len > 1:
+            _buffer = _buffer.reshape((1, *_buffer.shape))
+        return _buffer
+
+    def predict(self, inputs):
+        with self.graph.as_default():
+            with self.sess.as_default():
+                output = self.model.predict(inputs)
+                return output
 
     def run(self, img_array, *sensor_data):
+        inputs = {}
         norm_img_array = normalize_images(img_array)
-        if self.buffer_size > 1:
-            img_data = self.store("images", norm_img_array)
-        else:
-            img_data = norm_img_array
-        if len(sensor_data) > 0:
+        img_data = self.store("images", norm_img_array)
+        inputs["image_input"] = img_data
+        if self.using_sensors:
             if any([data is None for data in sensor_data]):
                 sensor_data = [0.0 for _ in range(len(sensor_data))]
-            if self.buffer_size > 1:
-                sensor_data = self.store("sensor_data", sensor_data)
-            else:
-                sensor_data = np_array(sensor_data)
-            inputs = [[img_data], [sensor_data]]
+            sensor_data = self.store("sensor_data", sensor_data)
+            inputs["sensor_input"] = sensor_data
+        action = self.predict(inputs)
+        if action.shape[0] > 1:
+            steering, throttle = np.squeeze(action)
         else:
-            inputs = [[img_data]]
-        action = self.model.predict(self.sess, inputs)
-        if self.output_size == 1:
-            steering = action
+            steering = action.item()
             throttle = self.throttle
-        else:
-            steering, throttle = action
         return steering, throttle
 
-    def shutdown(self):
-        self.sess.close()
+
+class DonkeyNetClassifierController(BasePart):
+    def __init__(self, graph, sess, model, config, sensor_only=False):
+        self.graph = graph
+        self.sess = sess
+        self.model = model
+        self.sensor_only = sensor_only
+        self.using_sensors = config.using_sensors
+        self.threshold_confidence = config.threshold_confidence
+
+    def predict(self, inputs):
+        with self.graph.as_default():
+            with self.sess.as_default():
+                output = self.model.predict(inputs)
+                output = np.squeeze(output)
+                return output
+
+    def run(self, img_array, throttle, *sensor_data):
+        if img_array is None:
+            return 0.0, False, throttle
+        inputs = {}
+        if not self.sensor_only:
+            img_data = normalize_images(img_array)
+            inputs["image_input"] = img_data.reshape(1, *img_data.shape)
+        if self.using_sensors:
+            if any([data is None for data in sensor_data]):
+                sensor_data = [0.0 for _ in range(len(sensor_data))]
+            sensor_data = np.array(sensor_data)
+            sensor_data = sensor_data.reshape(1, *sensor_data.shape)
+            inputs["sensor_input"] = sensor_data
+        parked_prob = self.predict(inputs)[1]
+        if parked_prob >= self.threshold_confidence:
+            parked = True
+            throttle = 0.0
+        else:
+            parked = False
+            if parked_prob >= 0.5*self.threshold_confidence:
+                throttle *= 2**2*(self.threshold_confidence-parked_prob)
+            else:
+                throttle = throttle
+        return round(parked_prob, 4), parked, throttle
 
 
-class RandomController:
+class NullController(BasePart):
+    def __init__(self):
+        pass
+
+    @staticmethod
+    def run():
+        steering = throttle = 0.0
+        return steering, throttle
+
+
+class RandomController(BasePart):
     def __init__(self, env):
         self.env = env
 
     def run(self):
         steering, throttle = self.env.action_space.sample()
         return steering, throttle
+
+    def shutdown(self):
+        self.env.close()

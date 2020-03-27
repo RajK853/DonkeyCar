@@ -15,7 +15,7 @@ class DonkeyNetController(BasePart):
         self.model = model
 
     def store(self, key, value):
-        if len(self.replay_buffer[key]) > self.sequence_len:
+        if len(self.replay_buffer[key]) >= self.sequence_len:
             self.replay_buffer[key].pop(0)
         while len(self.replay_buffer[key]) < self.sequence_len:
             self.replay_buffer[key].append(value)
@@ -41,7 +41,7 @@ class DonkeyNetController(BasePart):
             sensor_data = self.store("sensor_data", sensor_data)
             inputs["sensor_input"] = sensor_data
         action = self.predict(inputs)
-        if action.shape[0] > 1:
+        if len(action) > 1:
             steering, throttle = np.squeeze(action)
         else:
             steering = action.item()
@@ -65,9 +65,9 @@ class DonkeyNetClassifierController(BasePart):
                 output = np.squeeze(output)
                 return output
 
-    def run(self, img_array, throttle, *sensor_data):
+    def run(self, img_array, *sensor_data):
         if img_array is None:
-            return 0.0, False, throttle
+            return 0.0, False, 1.0
         inputs = {}
         if not self.sensor_only:
             img_data = normalize_images(img_array)
@@ -79,16 +79,9 @@ class DonkeyNetClassifierController(BasePart):
             sensor_data = sensor_data.reshape(1, *sensor_data.shape)
             inputs["sensor_input"] = sensor_data
         parked_prob = self.predict(inputs)[1]
-        if parked_prob >= self.threshold_confidence:
-            parked = True
-            throttle = 0.0
-        else:
-            parked = False
-            if parked_prob >= 0.5*self.threshold_confidence:
-                throttle *= 2**2*(self.threshold_confidence-parked_prob)
-            else:
-                throttle = throttle
-        return round(parked_prob, 4), parked, throttle
+        parked = (parked_prob >= self.threshold_confidence)
+        throttle_scale = max(0.0, (self.threshold_confidence-parked_prob)/self.threshold_confidence)
+        return round(parked_prob, 4), parked, throttle_scale
 
 
 class NullController(BasePart):

@@ -1,6 +1,5 @@
 import os
 from donkeycar import Vehicle
-import tensorflow.compat.v1 as tf_v1
 from donkeycar.parts.datastore import TubHandler
 from donkeycar.parts.controller import LocalWebController
 from donkeycar.parts.actuator import PCA9685, PWMSteering, PWMThrottle
@@ -9,8 +8,8 @@ import config
 from src.arg_parser import parse_args
 from src.wrappers import ContextManagerWrapper
 from src.utils import get_camera, copy_attributes, load_model
-from src.parts import DonkeyNetController, NullController, DriveSelector, ThrottleGPIOController, UltraSonic, \
-    ConsolePrinter, DonkeyNetClassifierController
+from src.parts import DonkeyNetController, NullController, DriveSelector, WeightedThrottle, ThrottleGPIOController, \
+    UltraSonic, ConsolePrinter, DonkeyNetClassifierController
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -75,19 +74,24 @@ if __name__ == "__main__":
                 inputs=["user/steering", "user/throttle", "donkeynet/steering", "donkeynet/throttle", "user/mode"],
                 outputs=["steering", "throttle", "drive/auto"])
 
-        inputs = ["classifier/prob", "classifier/parked", "steering"]
-        car.add(ConsolePrinter(input_names=inputs, print_length=100), inputs=inputs)
-
         if args.classifier_model_path is not None:
             graph_2, sess_2, classifier_model = load_model(os.path.join(args.classifier_model_path, "classifier.h5"))
             kwargs = {"graph": graph_2, "sess": sess_2, "model": classifier_model, "config": config}
             classifier = DonkeyNetClassifierController(**kwargs, sensor_only=True)
-            inputs = ["cam/image_array", "throttle"]
+            inputs = ["cam/image_array"]
             if args.using_sensors:
                 inputs.extend(config.SENSOR_KEYS)
             car.add(classifier,
                     inputs=inputs,
-                    outputs=["classifier/prob", "classifier/parked", "throttle"])
+                    outputs=["classifier/prob", "classifier/parked", "throttle_scale"])
+
+        car.add(WeightedThrottle(), inputs=["throttle", "throttle_scale", "drive/auto"],
+                outputs=["throttle"])
+
+        inputs = ["classifier/prob", "classifier/parked"]
+        if args.using_sensors:
+            inputs.extend(config.SENSOR_KEYS)
+        car.add(ConsolePrinter(input_names=inputs, print_length=180), inputs=inputs)
 
         if config.CAM_TYPE != "donkey_gym":
             # Steering and throttle controllers

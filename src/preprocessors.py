@@ -1,6 +1,11 @@
 import numpy as np
 from . import image_processing
 
+ILLUMINATION_BETA = list(range(-8, 9))
+for value in range(-2, 3):
+    ILLUMINATION_BETA.remove(value)
+ILLUMINATION_BETA = 10*np.array(ILLUMINATION_BETA)
+
 
 def flip_v(img=None, action=None, sensor_data=None):
     if img is not None:
@@ -22,7 +27,7 @@ def blur(img, action=None, sensor_data=None):
 
 def illuminate(img, action=None, sensor_data=None):
     alpha = 1
-    beta = 10*np.random.randint(-8, 8)
+    beta = np.random.choice(ILLUMINATION_BETA)
     img = image_processing.illuminate_img(img, alpha=alpha, beta=beta)
     return img, action, sensor_data
 

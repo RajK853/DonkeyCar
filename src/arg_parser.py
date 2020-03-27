@@ -35,7 +35,7 @@ def parse_args(mode):
         arg_parser.add_argument("--classifier_model_path", help="Classifier Model checkpoint directory", type=str,
                                 default=None)
         arg_parser.add_argument("--sim_rate", help="Simulation rendering frequency in Hz", type=int, default=60)
-        arg_parser.add_argument("--throttle", help="Car throttle value", type=float, default=0.3)
+        arg_parser.add_argument("--throttle", help="Car throttle value", type=float, default=0.2)
         arg_parser.add_argument("--recording_path", help="Path to save any recording data", type=str, default=None)
         donkey_gym_envs = ["donkey-generated-roads-v0", "donkey-warehouse-v0",
                            "donkey-avc-sparkfun-v0", "donkey-generated-track-v0"]

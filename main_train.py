@@ -61,7 +61,7 @@ def init_data_generators(_args):
         gen_func = DataGenerator
     else:
         gen_func = DataGeneratorClassifier
-    gen_dict = {data_type: gen_func(**dataset[data_type], sequence_len=config.sequence_length)
+    gen_dict = {data_type: gen_func(**dataset[data_type], data_type=data_type, sequence_len=config.sequence_length)
                        for data_type in config.DATA_TYPES}
     return gen_dict
 

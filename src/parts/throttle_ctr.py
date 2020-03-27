@@ -6,6 +6,14 @@ HIGH = GPIO.HIGH
 OUT = GPIO.OUT
 
 
+class WeightedThrottle(BasePart):
+    def run(self, throttle, weight, enable):
+        if not enable:
+            return throttle
+        weight = 1.0 if weight is None else weight
+        return round(throttle*weight, 4)
+
+
 class ThrottleGPIOController(BasePart):
     def __init__(self, pwm, ain1, ain2, stby, mode=GPIO.BOARD):
         self.pins = self.pwm, self.ain1, self.ain2, self.stby = (pwm, ain1, ain2, stby)

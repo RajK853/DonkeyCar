@@ -4,4 +4,4 @@ from .controllers import DonkeyNetController, RandomController, NullController, 
 from .drive_selector import DriveSelector
 from .sensor import UltraSonic, FakeSensor
 from .printer import ConsolePrinter
-from .throttle_ctr import ThrottleGPIOController
+from .throttle_ctr import ThrottleGPIOController, WeightedThrottle

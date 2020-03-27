@@ -47,38 +47,86 @@ def donkey_model_v1(img_shape, sensor_shape, lr, **_):
 def donkey_model_v2(img_shape, sensor_shape, lr, **_):
     img_input = Input(shape=img_shape, dtype="float32", name="image_input")
     sensor_input = Input(shape=sensor_shape, dtype="float32", name="sensor_input")
+    kernel_regularizer = l2(1e-3)
+    default_kwargs = {"activation": "relu", "kernel_regularizer": kernel_regularizer}
     # Process image
-    layer_out = TD(Conv2D(filters=16, kernel_size=5, strides=2, activation="relu", data_format="channels_last"))(img_input)
-    layer_out = TD(MaxPool2D(pool_size=(2, 2), strides=2))(layer_out)
-    layer_out = TD(Conv2D(filters=32, kernel_size=5, strides=2, activation="relu"))(layer_out)
-    layer_out = TD(MaxPool2D(pool_size=(2, 2), strides=2))(layer_out)
-    layer_out = TD(Conv2D(filters=16, kernel_size=5, strides=2, activation="relu"))(layer_out)
+    layer_out = TD(Cropping2D(((0, 20), (0, 0)), data_format="channels_last"))(img_input)
+    layer_out = TD(Conv2D(filters=24, kernel_size=5, strides=2, **default_kwargs))(layer_out)
+    layer_out = TD(Conv2D(filters=32, kernel_size=5, strides=2, **default_kwargs))(layer_out)
+    layer_out = TD(Conv2D(filters=64, kernel_size=5, strides=2, **default_kwargs))(layer_out)
+    layer_out = TD(Conv2D(filters=64, kernel_size=3, strides=2, **default_kwargs))(layer_out)
     layer_out = TD(Flatten())(layer_out)
-    layer_out = LSTM(units=50, return_sequences=True, kernel_regularizer=l2(0.001))(layer_out)
-    layer_out = Dropout(0.25)(layer_out)
-    layer_out = LSTM(units=25, return_sequences=True, kernel_regularizer=l2(0.001))(layer_out)
+    layer_out = LSTM(units=50, **default_kwargs)(layer_out)
+    layer_out = Dense(units=25, **default_kwargs)(layer_out)
+    layer_out = Dropout(0.2)(layer_out)
     # Process sensor data
-    sensor_out = LSTM(units=50, return_sequences=True, kernel_regularizer=l2(0.001))(sensor_input)
-    sensor_out = LSTM(units=50, return_sequences=True, kernel_regularizer=l2(0.001))(sensor_out)
-    sensor_out = Dropout(0.1)(sensor_out)
-    sensor_out = LSTM(units=25, return_sequences=True, kernel_regularizer=l2(0.001))(sensor_out)
+    sensor_out = LSTM(units=50, **default_kwargs)(sensor_input)
+    sensor_out = Dense(units=50, **default_kwargs)(sensor_out)
+    sensor_out = Dense(units=50, **default_kwargs)(sensor_out)
+    sensor_out = Dense(units=25, **default_kwargs)(sensor_out)
+    sensor_out = Dropout(0.2)(sensor_out)
     # Concatenate processed image and sensor data
     layer_out = Concatenate(axis=-1)([layer_out, sensor_out])
-    layer_out = LSTM(units=50, return_sequences=True, kernel_regularizer=l2(0.001))(layer_out)
-    layer_out = LSTM(units=50, kernel_regularizer=l2(0.01))(layer_out)
     # Compute steering
-    steering = Dense(units=50, activation="relu", kernel_regularizer=l2(0.001))(layer_out)
-    steering = Dropout(0.1)(steering)
-    steering = Dense(units=25, activation="relu", kernel_regularizer=l2(0.001))(steering)
+    steering = Dense(units=50, **default_kwargs)(layer_out)
+    steering = Dense(units=50, **default_kwargs)(steering)
+    steering = Dropout(0.2)(steering)
+    steering = Dense(units=25, **default_kwargs)(steering)
     steering = Dense(units=1)(steering)
     steering = Lambda(clip_steering_tf, name="steering_output")(steering)
-    # Compute throttle
-    throttle = Dense(units=50, activation="relu", kernel_regularizer=l2(0.001))(layer_out)
-    throttle = Dropout(0.1)(throttle)
-    throttle = Dense(units=25, activation="relu", kernel_regularizer=l2(0.001))(throttle)
+    model = Model(inputs=[img_input, sensor_input], outputs=[steering])
+    # Loss function, optimizer and metrics
+    loss = tf_v1.keras.losses.MeanSquaredError()
+    optimizer = tf_v1.keras.optimizers.Adam(lr=lr)
+    model.compile(loss=loss, optimizer=optimizer)
+    return model
+
+
+def donkey_model_v3(img_shape, sensor_shape, lr, **_):
+    img_input = Input(shape=img_shape, dtype="float32", name="image_input")
+    sensor_input = Input(shape=sensor_shape, dtype="float32", name="sensor_input")
+    kernel_regularizer = l2(1e-3)
+    default_kwargs = {"activation": "relu", "kernel_regularizer": kernel_regularizer}
+    # Process image
+    layer_out = TD(Cropping2D(((0, 20), (0, 0)), data_format="channels_last"))(img_input)
+    layer_out = TD(Conv2D(filters=24, kernel_size=5, strides=2, **default_kwargs))(layer_out)
+    layer_out = TD(Conv2D(filters=32, kernel_size=5, strides=2, **default_kwargs))(layer_out)
+    layer_out = TD(Conv2D(filters=64, kernel_size=5, strides=2, **default_kwargs))(layer_out)
+    layer_out = TD(Conv2D(filters=64, kernel_size=3, strides=2, **default_kwargs))(layer_out)
+    layer_out = TD(Flatten())(layer_out)
+    layer_out = LSTM(units=50, **default_kwargs)(layer_out)
+    layer_out = Dense(units=25, **default_kwargs)(layer_out)
+    layer_out = Dropout(0.2)(layer_out)
+    # Process sensor data
+    sensor_out = LSTM(units=50, **default_kwargs)(sensor_input)
+    sensor_out = Dense(units=50, **default_kwargs)(sensor_out)
+    sensor_out = Dense(units=50, **default_kwargs)(sensor_out)
+    sensor_out = Dense(units=25, **default_kwargs)(sensor_out)
+    sensor_out = Dropout(0.2)(sensor_out)
+    # Concatenate processed image and sensor data
+    layer_out = Concatenate(axis=-1)([layer_out, sensor_out])
+    # Compute steering
+    steering = Dense(units=50, **default_kwargs)(layer_out)
+    steering = Dense(units=50, **default_kwargs)(steering)
+    steering = Dropout(0.2)(steering)
+    steering = Dense(units=25, **default_kwargs)(steering)
+    steering = Dense(units=1)(steering)
+    steering = Lambda(clip_steering_tf, name="steering_output")(steering)
+
+    # Compute steering
+    throttle = Dense(units=50, **default_kwargs)(layer_out)
+    throttle = Dense(units=50, **default_kwargs)(throttle)
+    throttle = Dropout(0.2)(throttle)
+    throttle = Dense(units=25, **default_kwargs)(throttle)
     throttle = Dense(units=1)(throttle)
     throttle = Lambda(clip_throttle_tf, name="throttle_output")(throttle)
-    return Model(inputs=[img_input, sensor_input], outputs=[steering, throttle])
+
+    model = Model(inputs=[img_input, sensor_input], outputs=[steering, throttle])
+    # Loss function, optimizer and metrics
+    loss = tf_v1.keras.losses.MeanSquaredError()
+    optimizer = tf_v1.keras.optimizers.Adam(lr=lr)
+    model.compile(loss=loss, optimizer=optimizer)
+    return model
 
 
 def donkey_classifier_v1(sensor_shape, lr, **_):

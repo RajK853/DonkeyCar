@@ -7,12 +7,14 @@ from src.utils import mixup
 
 
 class DataGenerator(Sequence):
-    def __init__(self, images, actions, sensors, batch_size, sequence_len=1, preprocessors=None, run_setup=True):
+    def __init__(self, images, actions, sensors, batch_size, data_type, sequence_len=1, preprocessors=None,
+                 run_setup=True):
         self.images = np.array(images)
         self.sensors = np.array(sensors)
         self.actions = np.array(actions)
         self.batch_size = batch_size
         self.sequence_len = sequence_len
+        self.data_type = data_type
         self.preprocessors = preprocessors
         self.preprocessor_idx = 0
         self.preprocessor = None
@@ -129,7 +131,8 @@ class DataGeneratorClassifier(DataGenerator):
             [np.ones(positive_batch_size, dtype=int), np.zeros(negative_batch_size, dtype=int)])
         batch_one_hot_labels = np.eye(2, dtype="int32")[batch_labels]
         mixup_features = (batch_sensor_data, batch_one_hot_labels)
-        batch_sensor_data, batch_one_hot_labels = mixup(*mixup_features, alpha=1.0)
+        if self.data_type != "test":
+            batch_sensor_data, batch_one_hot_labels = mixup(*mixup_features, alpha=1.0)
         # batch_images = normalize_images(batch_images)
         # batch_inputs = {"image_input": batch_images, "sensor_input": batch_sensor_data}
         batch_inputs = {"sensor_input": batch_sensor_data}

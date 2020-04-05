@@ -1,6 +1,6 @@
 # Simulation variables
 SIM_PATH = r"/home/rajk/Machine_Learning/DonkeySimLinux/donkey_sim.x86_64"
-SIM_RATE = 20
+SIM_RATE = 30
 # Dataset variables
 DATA_TYPES = ("train", "test", "validation")
 # Steering variables
@@ -36,8 +36,10 @@ TRIG_TIME = 100e-6
 SENSOR_TIMEOUT = 0.3    # seconds
 MAX_DISTANCE = 2.0      # meters
 # Classifier variables
-threshold_confidence = 0.8
+threshold_confidence = 0.6
 # Other variables
+mixup_alpha = 0.2             # Used to sample from a Beta distribution as Beta(alpha, alpha)
+mixup_probability = 1.0
 predict_throttle = False
 using_sensors = True
 sequence_length = 1

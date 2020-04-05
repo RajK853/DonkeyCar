@@ -61,8 +61,11 @@ def init_data_generators(_args):
         gen_func = DataGenerator
     else:
         gen_func = DataGeneratorClassifier
-    gen_dict = {data_type: gen_func(**dataset[data_type], data_type=data_type, sequence_len=config.sequence_length)
-                       for data_type in config.DATA_TYPES}
+    other_kwargs = {"sequence_len": config.sequence_length,
+                    "mixup_prob": config.mixup_probability,
+                    "mixup_alpha": config.mixup_alpha}
+    gen_dict = {data_type: gen_func(**dataset[data_type], **other_kwargs, data_type=data_type)
+                for data_type in config.DATA_TYPES}
     return gen_dict
 
 
@@ -94,7 +97,7 @@ if __name__ == "__main__":
     model = init_model(args)
     data_generators = init_data_generators(args)
     print(f"\n# Training the {args.model_type}!")
-    # train_callbacks = [EarlyStopping(monitor='val_loss', min_delta=0.001, patience=5, restore_best_weights=True)]
+    # train_callbacks = [EarlyStopping(monitor='val_loss', min_delta=0.001, patience=10, restore_best_weights=False)]
     train_callbacks = []
     train_result = model.fit(data_generators["train"], validation_data=data_generators["validation"],
                              epochs=args.epochs, callbacks=train_callbacks)

@@ -67,7 +67,7 @@ if __name__ == "__main__":
                 inputs.extend(config.SENSOR_KEYS)
             car.add(donkey_net_ctr,
                     inputs=inputs,
-                    outputs=["donkeynet/steering", "donkeynet/throttle"],
+                    outputs=["donkeynet/steering", "donkeynet/throttle", "donkeynet/stop_prob"],
                     run_condition="drive/auto")
 
         car.add(DriveSelector(),
@@ -77,7 +77,7 @@ if __name__ == "__main__":
         if args.classifier_model_path is not None:
             graph_2, sess_2, classifier_model = load_model(os.path.join(args.classifier_model_path, "classifier.h5"))
             kwargs = {"graph": graph_2, "sess": sess_2, "model": classifier_model, "config": config}
-            classifier = DonkeyNetClassifierController(**kwargs, sensor_only=True)
+            classifier = DonkeyNetClassifierController(**kwargs, buffer_size=3, sensor_only=True)
             inputs = ["cam/image_array"]
             if args.using_sensors:
                 inputs.extend(config.SENSOR_KEYS)
@@ -85,12 +85,12 @@ if __name__ == "__main__":
                     inputs=inputs,
                     outputs=["classifier/prob", "classifier/parked", "throttle_scale"])
 
-        car.add(WeightedThrottle(), inputs=["throttle", "throttle_scale", "drive/auto"],
+        car.add(WeightedThrottle(min_weight=0.0), inputs=["throttle", "throttle_scale", "drive/auto"],
                 outputs=["throttle"])
 
-        inputs = ["classifier/prob", "classifier/parked"]
-        if args.using_sensors:
-            inputs.extend(config.SENSOR_KEYS)
+        inputs = ["donkeynet/stop_prob", "throttle", "steering"]
+        if args.classifier_model_path is not None:
+            inputs.extend(["classifier/prob", "classifier/parked"])
         car.add(ConsolePrinter(input_names=inputs, print_length=180), inputs=inputs)
 
         if config.CAM_TYPE != "donkey_gym":

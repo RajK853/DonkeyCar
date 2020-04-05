@@ -7,11 +7,17 @@ OUT = GPIO.OUT
 
 
 class WeightedThrottle(BasePart):
+    def __init__(self, func=None, min_weight=0.0):
+        self.func = lambda x, y: x*y if func is None else func
+        self.min_weight = min_weight
+
     def run(self, throttle, weight, enable):
         if not enable:
             return throttle
         weight = 1.0 if weight is None else weight
-        return round(throttle*weight, 4)
+        weight = max(weight, self.min_weight)
+        result = self.func(throttle, weight)
+        return round(result, 4)
 
 
 class ThrottleGPIOController(BasePart):

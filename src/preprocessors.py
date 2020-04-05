@@ -7,7 +7,7 @@ for value in range(-2, 3):
 ILLUMINATION_BETA = 10*np.array(ILLUMINATION_BETA)
 
 
-def flip_v(img=None, action=None, sensor_data=None):
+def flip_h(img=None, action=None, sensor_data=None, **_):
     if img is not None:
         img = image_processing.flip_img(img)
     if action is not None:
@@ -19,13 +19,13 @@ def flip_v(img=None, action=None, sensor_data=None):
     return img, action, sensor_data
 
 
-def blur(img, action=None, sensor_data=None):
+def blur(img, action=None, sensor_data=None, **_):
     kernel_size = np.random.choice((3, 5))
     img = image_processing.blur_img(img, ksize=(kernel_size, kernel_size))
     return img, action, sensor_data
 
 
-def illuminate(img, action=None, sensor_data=None):
+def illuminate(img, action=None, sensor_data=None, **_):
     alpha = 1
     beta = np.random.choice(ILLUMINATION_BETA)
     img = image_processing.illuminate_img(img, alpha=alpha, beta=beta)

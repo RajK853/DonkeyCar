@@ -58,6 +58,7 @@ def process_json_data(data_dir, include_keys=None, exclude_files=None, force_pro
     else:
         df = pd.DataFrame()
         json_files = list_dir(data_dir, extensions=[".json"], exclude_files=exclude_files)
+        json_files.sort(key=lambda x: int(x.strip("record_.json")))
         p_bar = ProgressBar(total_iter=len(json_files), display_text="  Processing data", display_interval=10)
         for json_file in json_files:
             json_path = os.path.join(data_dir, json_file)
@@ -145,11 +146,13 @@ def get_camera(cam_type):
     return Camera
 
 
-def mixup(*args, alpha=0.2):
+def mixup(*args, alpha=0.2, verbose=False):
     results = []
     batch_size = len(args[0])
     random_indexes = np.random.permutation(batch_size)
     _lambda = np.random.beta(alpha, alpha, size=batch_size)
+    if verbose:
+        print(f"Mixup lambda: {_lambda},  \nMixup indexes: {tuple(zip(range(batch_size), random_indexes))}")
     for arg in args:
         arg_shape = [1]*len(arg.shape)
         arg_shape[0] = batch_size

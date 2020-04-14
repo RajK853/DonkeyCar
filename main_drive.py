@@ -17,7 +17,6 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 if __name__ == "__main__":
     args = parse_args(mode="drive")
-    copy_attributes(("using_sensors", "sequence_length"), src_obj=args, dst_obj=config)
     with ContextManagerWrapper(Vehicle(), exit_method="stop") as car:
         if config.CAM_TYPE == "donkey_gym":
             from donkeycar.parts.dgym import DonkeyGymEnv
@@ -47,7 +46,7 @@ if __name__ == "__main__":
                 outputs=["user/steering", "user/throttle", "user/mode", "recording"],
                 threaded=True)
 
-        if args.using_sensors:
+        if config.using_sensors:
             for sensor_type, pins in zip(config.SENSOR_KEYS, config.SENSOR_PINS):
                 trig_pin, echo_pin = pins
                 sensor = UltraSonic(name=sensor_type, trig_pin=trig_pin, echo_pin=echo_pin, trig_time=config.TRIG_TIME,
@@ -63,7 +62,7 @@ if __name__ == "__main__":
             kwargs = {"graph": graph_1, "sess": sess_1, "model": model, "throttle": args.throttle, "config": config}
             donkey_net_ctr = DonkeyNetController(**kwargs)
             inputs = ["cam/image_array"]
-            if args.using_sensors:
+            if config.using_sensors:
                 inputs.extend(config.SENSOR_KEYS)
             car.add(donkey_net_ctr,
                     inputs=inputs,
@@ -79,7 +78,7 @@ if __name__ == "__main__":
             kwargs = {"graph": graph_2, "sess": sess_2, "model": classifier_model, "config": config}
             classifier = DonkeyNetClassifierController(**kwargs, buffer_size=3, sensor_only=True)
             inputs = ["cam/image_array"]
-            if args.using_sensors:
+            if config.using_sensors:
                 inputs.extend(config.SENSOR_KEYS)
             car.add(classifier,
                     inputs=inputs,
@@ -115,7 +114,7 @@ if __name__ == "__main__":
             tub_handler = TubHandler(path=args.recording_path)
             tub_inputs = ["cam/image_array", "steering", "throttle"]
             tub_input_types = ["image_array", "float", "float"]
-            if args.using_sensors:
+            if config.using_sensors:
                 tub_inputs.extend(config.SENSOR_KEYS)
                 tub_input_types.extend(["float" for _ in range(config.SENSOR_NUM)])
             car.add(tub_handler.new_tub_writer(inputs=tub_inputs, types=tub_input_types, user_meta=[]),

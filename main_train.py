@@ -8,7 +8,7 @@ import config
 from src.arg_parser import parse_args
 from src.models import get_donkey_net_func
 from src.preprocessors import get_preprocessor
-from src.utils import load_multiple_data, copy_attributes
+from src.utils import load_multiple_data
 from src.data_generators import DataGenerator, DataGeneratorClassifier
 
 # Tensorflow session configuration
@@ -21,11 +21,6 @@ tf_v1.keras.backend.set_session(tf_v1.Session(config=TF_CONFIG))
 
 
 def load_data(data_type):
-    """
-    This local function prepares arguments and loads the data based on given data_type
-    :param data_type: (str) "train", "test" or "validation"
-    :return: (dict) Dictionary with image, sensor and action data
-    """
     kwargs = {"data_dir": os.path.join(args.data_dir, data_type),
               "config": config,
               "force_process": args.force_process,
@@ -93,7 +88,6 @@ def plot_training_result(train_history, plt_dump_path=None):
 
 if __name__ == "__main__":
     args = parse_args(mode="train")
-    copy_attributes(("predict_throttle", "using_sensors", "sequence_length"), src_obj=args, dst_obj=config)
     model = init_model(args)
     data_generators = init_data_generators(args)
     print(f"\n# Training the {args.model_type}!")

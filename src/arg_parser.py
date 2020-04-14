@@ -4,12 +4,6 @@ import argparse
 
 def parse_args(mode):
     arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument("--predict_throttle", help="Predict throttle from the neural network",
-                            dest="predict_throttle", action="store_true", default=False)
-    arg_parser.add_argument("--using_sensors", help="Using ultrasonic sensors", dest="using_sensors",
-                            action="store_true", default=False)
-    arg_parser.add_argument("--sequence_length", help="Sequence length for recurrent networks",
-                            dest="sequence_length", type=int, default=1)
     if mode.lower() == "train":
         arg_parser.add_argument("--version", help="DonkeyNet version", type=int)
         arg_parser.add_argument("--epochs", help="Number of epochs", type=int, default=20)

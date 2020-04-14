@@ -40,6 +40,6 @@ threshold_confidence = 0.6
 # Other variables
 mixup_alpha = 0.2             # Used to sample from a Beta distribution as Beta(alpha, alpha)
 mixup_probability = 1.0
-predict_throttle = False
+predict_throttle = True
 using_sensors = True
-sequence_length = 1
+sequence_length = 3

@@ -69,16 +69,16 @@ class UltraSonic(FakeSensor):
 
     def calculate_distance(self):
         t0 = t1 = 0.0
-        timeout_time = time() + self.timeout_t
+        max_time = time() + self.timeout_t
         self.gen_pulse()
         while GPIO.input(self.echo_pin) == 0:
             t0 = time()
-            if t0 > timeout_time:
+            if t0 > max_time:
                 print(f"Timeout in {self.name}. Returned value: {self.distance}")
                 return
         while GPIO.input(self.echo_pin) == 1:
             t1 = time()
-            if t1 > timeout_time:
+            if t1 > max_time:
                 print(f"Timeout in {self.name}. Returned value: {self.distance}")
                 return
         dt = t1 - t0

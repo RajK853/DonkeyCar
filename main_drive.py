@@ -52,7 +52,8 @@ if __name__ == "__main__":
                 sensor = UltraSonic(name=sensor_type, trig_pin=trig_pin, echo_pin=echo_pin, trig_time=config.TRIG_TIME,
                                     timeout_t=config.SENSOR_TIMEOUT, max_distance=config.MAX_DISTANCE)
                 car.add(sensor,
-                        outputs=[sensor_type])
+                        outputs=[sensor_type],
+                        threaded=True)
         if args.model_path is None:
             car.add(NullController(),
                     outputs=["donkeynet/steering", "donkeynet/throttle"],

@@ -1,6 +1,6 @@
 # Donkey Car - Imitation Learning  
-Implementation of imitation learning to train a model to drive a donkey car.
-#Requirements  
+Implementation of Imitation Learning to train a model to drive a donkey car.  
+# Requirements  
 **OS:** Ubuntu 18.04 (Tested)  
 __See `requirements.txt` for information on python libraries.__  
 

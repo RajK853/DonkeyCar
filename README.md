@@ -15,11 +15,9 @@ To train a model, go to the main directory of this repository aand execute the c
   
 This will train the model and save the weights in depending on `model_path` (by default `models` directory) as `model.h5`.
 
-__Please look in `parse_args` function in `src/arg_parser.py` for information on additional parsable arguments__  
+> Please look in `parse_args` function in `src/arg_parser.py` for information on additional parsable arguments
 
 # Test a model
 The trained model can be tested in simulation provided by [Donkey Gym](https://github.com/tawnkramer/gym-donkeycar).  
 Run the following command in the terminal:  
 `python main_drive.py --model_path {DIRECTORY_OF_TRAINED_MODEL}`  
-
-__Please look in `parse_args` function in `src/arg_parser.py` for information on additional parsable arguments__  

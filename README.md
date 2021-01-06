@@ -1,5 +1,10 @@
 # Donkey Car - Imitation Learning  
 Implementation of Imitation Learning to train a model to drive a donkey car.  
+
+| Parallel Parking | Perpendicular Parking |  
+| ------------- | ------------- |  
+| <img src="assets/parallel_park.gif" width="350" height="200" title="Parallel Parking"/> | <img src="assets/perpendicular_park.gif" width="350" height="200" title="Perpendicular Parking"/>  |
+
 # Requirements  
 **OS:** Ubuntu 18.04 (Tested)  
 __See `requirements.txt` for information on python libraries.__  
